@@ -33,6 +33,18 @@ def create_app(test_config=None):
     # Enable CORS
     CORS(app)
     
+    # Determine the absolute path to the web directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    web_dir = os.path.join(parent_dir, 'web')
+    
+    # Log the web directory path for debugging
+    app.logger.info(f"Web directory path: {web_dir}")
+    app.logger.info(f"Files in web directory: {os.listdir(web_dir) if os.path.exists(web_dir) else 'Directory not found'}")
+    
+    # Set the web directory as an app config
+    app.config['WEB_DIR'] = web_dir
+    
     # Apply test configuration if provided
     if test_config:
         app.config.update(test_config)
@@ -651,6 +663,11 @@ def create_app(test_config=None):
         installation_config = request.json
         return jsonify(install_wizard.run_installation(installation_config))
     
+    @app.route('/debug', methods=['GET'])
+    def debug():
+        """Debug route to verify server is working."""
+        return jsonify({"status": "ok", "message": "Server is running"})
+
     @app.route('/', methods=['GET'])
     def index():
         """
@@ -659,7 +676,14 @@ def create_app(test_config=None):
         Returns:
             HTML: The main page.
         """
-        return send_from_directory('../web', 'index.html')
+        try:
+            # Use the absolute path from the app config
+            web_dir = app.config['WEB_DIR']
+            app.logger.info(f"Serving index.html from {web_dir}")
+            return send_from_directory(web_dir, 'index.html')
+        except Exception as e:
+            app.logger.error(f"Error serving index.html: {str(e)}")
+            return jsonify({"error": str(e), "web_dir": app.config.get('WEB_DIR', 'Not set')}), 500
     
     @app.route('/<path:path>', methods=['GET'])
     def serve_static(path):
@@ -672,7 +696,14 @@ def create_app(test_config=None):
         Returns:
             File: The requested file.
         """
-        return send_from_directory('../web', path)
+        try:
+            # Use the absolute path from the app config
+            web_dir = app.config['WEB_DIR']
+            app.logger.info(f"Serving static file: {path} from {web_dir}")
+            return send_from_directory(web_dir, path)
+        except Exception as e:
+            app.logger.error(f"Error serving {path}: {str(e)}")
+            return jsonify({"error": str(e), "web_dir": app.config.get('WEB_DIR', 'Not set')}), 500
     
     return app
 
