@@ -10,6 +10,7 @@ This module provides a RESTful API server for the Pi-PVARR application:
 
 import os
 import json
+import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from typing import Dict, Any
@@ -30,17 +31,42 @@ def create_app(test_config=None):
     # Create Flask app
     app = Flask(__name__, instance_relative_config=True)
     
-    # Enable CORS
-    CORS(app)
+    # Enable CORS with specific settings
+    CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
     
     # Determine the absolute path to the web directory
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(current_dir)
-    web_dir = os.path.join(parent_dir, 'web')
+    # First check if we're running in the installed directory structure
+    installed_web_dir = os.path.join(os.path.expanduser('~'), 'Pi-PVARR', 'src', 'web')
+    
+    if os.path.exists(installed_web_dir):
+        web_dir = installed_web_dir
+    else:
+        # Fall back to the development path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(current_dir)
+        web_dir = os.path.join(parent_dir, 'web')
     
     # Log the web directory path for debugging
     app.logger.info(f"Web directory path: {web_dir}")
-    app.logger.info(f"Files in web directory: {os.listdir(web_dir) if os.path.exists(web_dir) else 'Directory not found'}")
+    if os.path.exists(web_dir):
+        app.logger.info(f"Files in web directory: {os.listdir(web_dir)}")
+        
+        # Check for key web assets
+        css_dir = os.path.join(web_dir, 'css')
+        js_dir = os.path.join(web_dir, 'js')
+        index_file = os.path.join(web_dir, 'index.html')
+        
+        app.logger.info(f"CSS directory exists: {os.path.exists(css_dir)}")
+        if os.path.exists(css_dir):
+            app.logger.info(f"CSS files: {os.listdir(css_dir)}")
+            
+        app.logger.info(f"JS directory exists: {os.path.exists(js_dir)}")
+        if os.path.exists(js_dir):
+            app.logger.info(f"JS files: {os.listdir(js_dir)}")
+            
+        app.logger.info(f"index.html exists: {os.path.exists(index_file)}")
+    else:
+        app.logger.error(f"Web directory not found: {web_dir}")
     
     # Set the web directory as an app config
     app.config['WEB_DIR'] = web_dir
@@ -666,7 +692,20 @@ def create_app(test_config=None):
     @app.route('/debug', methods=['GET'])
     def debug():
         """Debug route to verify server is working."""
-        return jsonify({"status": "ok", "message": "Server is running"})
+        client_ip = request.remote_addr
+        hostname = request.host
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        
+        app.logger.info(f"Debug route accessed from IP: {client_ip}, Host: {hostname}, User-Agent: {user_agent}")
+        
+        return jsonify({
+            "status": "ok", 
+            "message": "Server is running",
+            "client_ip": client_ip,
+            "hostname": hostname,
+            "user_agent": user_agent,
+            "server_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
 
     @app.route('/', methods=['GET'])
     def index():
@@ -680,10 +719,34 @@ def create_app(test_config=None):
             # Use the absolute path from the app config
             web_dir = app.config['WEB_DIR']
             app.logger.info(f"Serving index.html from {web_dir}")
-            return send_from_directory(web_dir, 'index.html')
+            
+            # Add status information to help debug
+            if request.args.get('status') == 'debug':
+                return jsonify({
+                    "status": "ok",
+                    "web_dir": web_dir,
+                    "files": os.listdir(web_dir) if os.path.exists(web_dir) else "Directory not found",
+                    "index_exists": os.path.exists(os.path.join(web_dir, 'index.html'))
+                })
+            
+            response = send_from_directory(web_dir, 'index.html')
+            app.logger.info(f"Response headers: {dict(response.headers)}")
+            return response
         except Exception as e:
             app.logger.error(f"Error serving index.html: {str(e)}")
             return jsonify({"error": str(e), "web_dir": app.config.get('WEB_DIR', 'Not set')}), 500
+    
+    @app.route('/favicon.ico')
+    def favicon():
+        """Handle browser requests for favicon."""
+        app.logger.info("Favicon requested")
+        web_dir = app.config['WEB_DIR']
+        favicon_path = os.path.join(web_dir, 'favicon.ico')
+        
+        if os.path.exists(favicon_path):
+            return send_from_directory(web_dir, 'favicon.ico')
+        else:
+            return '', 204  # No content response
     
     @app.route('/<path:path>', methods=['GET'])
     def serve_static(path):
@@ -700,7 +763,39 @@ def create_app(test_config=None):
             # Use the absolute path from the app config
             web_dir = app.config['WEB_DIR']
             app.logger.info(f"Serving static file: {path} from {web_dir}")
-            return send_from_directory(web_dir, path)
+            
+            # Add status information for debugging
+            if request.args.get('status') == 'debug':
+                full_path = os.path.join(web_dir, path)
+                return jsonify({
+                    "path_requested": path,
+                    "full_path": full_path,
+                    "file_exists": os.path.exists(full_path),
+                    "is_file": os.path.isfile(full_path) if os.path.exists(full_path) else False,
+                    "parent_dir_exists": os.path.exists(os.path.dirname(full_path)) if '/' in path else True
+                })
+            
+            # Add validation to make sure the file exists
+            file_path = os.path.join(web_dir, path)
+            if not os.path.exists(file_path):
+                app.logger.error(f"File not found: {file_path}")
+                return jsonify({"error": f"File not found: {path}"}), 404
+                
+            # For CSS and JS files, make sure content type is set correctly
+            if path.endswith('.css'):
+                response = send_from_directory(web_dir, path)
+                response.headers['Content-Type'] = 'text/css'
+                app.logger.info(f"Served CSS file {path} with content type {response.content_type}")
+                return response
+            elif path.endswith('.js'):
+                response = send_from_directory(web_dir, path)
+                response.headers['Content-Type'] = 'application/javascript'
+                app.logger.info(f"Served JS file {path} with content type {response.content_type}")
+                return response
+            else:
+                response = send_from_directory(web_dir, path)
+                app.logger.info(f"Successfully served {path} with content type {response.content_type}")
+                return response
         except Exception as e:
             app.logger.error(f"Error serving {path}: {str(e)}")
             return jsonify({"error": str(e), "web_dir": app.config.get('WEB_DIR', 'Not set')}), 500
