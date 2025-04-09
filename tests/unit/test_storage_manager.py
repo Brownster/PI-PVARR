@@ -310,7 +310,7 @@ class TestStorageManager:
             result = storage_manager.configure_samba(config)
             
             assert result['status'] == 'success'
-            mock_file.assert_called_once_with('/etc/samba/smb.conf', 'w')
+            mock_file.assert_called_once_with('/etc/samba/smb.conf', 'w', encoding='utf-8')
             assert mock_add_share.call_count == 2
             mock_run.assert_called_once_with(['systemctl', 'restart', 'smbd'], check=True)
             

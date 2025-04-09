@@ -9,8 +9,14 @@ This module provides functions to manage Docker containers:
 """
 
 import re
-import docker
 from typing import Dict, Any, List, Optional
+
+# Conditionally import Docker client
+try:
+    import docker
+    DOCKER_AVAILABLE = True
+except ImportError:
+    DOCKER_AVAILABLE = False
 
 
 def get_container_status() -> Dict[str, Dict[str, Any]]:
@@ -21,6 +27,15 @@ def get_container_status() -> Dict[str, Dict[str, Any]]:
         Dict[str, Dict[str, Any]]: Dictionary of container information indexed by container name.
     """
     containers = {}
+    
+    if not DOCKER_AVAILABLE:
+        containers['error'] = {
+            'status': 'error',
+            'message': "Docker Python SDK is not installed. Docker functionality is unavailable.",
+            'type': 'other',
+            'description': 'Docker Python SDK missing'
+        }
+        return containers
     
     try:
         # Connect to Docker
@@ -129,6 +144,9 @@ def get_container_logs(container_name: str, lines: int = 100) -> str:
     Returns:
         str: Container logs.
     """
+    if not DOCKER_AVAILABLE:
+        return "Docker Python SDK is not installed. Cannot fetch container logs."
+    
     try:
         client = docker.from_env()
         container = client.containers.get(container_name)
@@ -148,6 +166,9 @@ def start_container(container_name: str) -> Dict[str, str]:
     Returns:
         Dict[str, str]: Dictionary with status and message.
     """
+    if not DOCKER_AVAILABLE:
+        return {'status': 'error', 'message': "Docker Python SDK is not installed. Docker functionality is unavailable."}
+    
     try:
         client = docker.from_env()
         container = client.containers.get(container_name)
@@ -167,6 +188,9 @@ def stop_container(container_name: str) -> Dict[str, str]:
     Returns:
         Dict[str, str]: Dictionary with status and message.
     """
+    if not DOCKER_AVAILABLE:
+        return {'status': 'error', 'message': "Docker Python SDK is not installed. Docker functionality is unavailable."}
+    
     try:
         client = docker.from_env()
         container = client.containers.get(container_name)
@@ -186,6 +210,9 @@ def restart_container(container_name: str) -> Dict[str, str]:
     Returns:
         Dict[str, str]: Dictionary with status and message.
     """
+    if not DOCKER_AVAILABLE:
+        return {'status': 'error', 'message': "Docker Python SDK is not installed. Docker functionality is unavailable."}
+    
     try:
         client = docker.from_env()
         container = client.containers.get(container_name)
@@ -205,6 +232,9 @@ def get_container_info(container_name: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary with container information.
     """
+    if not DOCKER_AVAILABLE:
+        return {'status': 'error', 'message': "Docker Python SDK is not installed. Docker functionality is unavailable."}
+    
     try:
         client = docker.from_env()
         container = client.containers.get(container_name)
@@ -256,6 +286,9 @@ def pull_image(image_name: str) -> Dict[str, str]:
     Returns:
         Dict[str, str]: Dictionary with status and message.
     """
+    if not DOCKER_AVAILABLE:
+        return {'status': 'error', 'message': "Docker Python SDK is not installed. Docker functionality is unavailable."}
+    
     try:
         client = docker.from_env()
         client.images.pull(image_name)
@@ -271,6 +304,9 @@ def update_all_containers() -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Dictionary with status and details.
     """
+    if not DOCKER_AVAILABLE:
+        return {'status': 'error', 'message': "Docker Python SDK is not installed. Docker functionality is unavailable."}
+    
     results = {
         'status': 'success',
         'message': "Update process completed",
@@ -287,8 +323,11 @@ def update_all_containers() -> Dict[str, Any]:
                 container_info = get_container_info(container.name)
                 
                 # Pull the latest image
-                image_name = container_info['image']
-                pull_result = pull_image(image_name)
+                image_name = container_info.get('image', '')
+                if image_name:
+                    pull_result = pull_image(image_name)
+                else:
+                    pull_result = {'status': 'error', 'message': 'Image name not found'}
                 
                 if pull_result['status'] == 'success':
                     # Restart the container to use the new image
@@ -297,13 +336,13 @@ def update_all_containers() -> Dict[str, Any]:
                         results['details'].append({
                             'container': container.name,
                             'status': 'updated',
-                            'message': f"Image pulled and container restarted"
+                            'message': "Image pulled and container restarted"
                         })
                     else:
                         results['details'].append({
                             'container': container.name,
                             'status': 'updated',
-                            'message': f"Image pulled, container not running"
+                            'message': "Image pulled, container not running"
                         })
                 else:
                     results['details'].append({

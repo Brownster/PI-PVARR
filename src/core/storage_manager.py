@@ -13,8 +13,14 @@ import os
 import re
 import subprocess
 import json
-import psutil
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
+
+# Conditionally import psutil
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 
 def get_drives_info() -> List[Dict[str, Any]]:
@@ -99,17 +105,35 @@ def get_mount_points() -> List[Dict[str, Any]]:
     mount_points = []
     
     try:
-        # Get disk partitions
-        partitions = psutil.disk_partitions(all=True)
-        
-        for partition in partitions:
-            # Exclude virtual filesystems
-            if partition.fstype not in ['tmpfs', 'devtmpfs', 'devfs', 'overlay', 'squashfs']:
-                mount_points.append({
-                    'device': partition.device,
-                    'mountpoint': partition.mountpoint,
-                    'fstype': partition.fstype
-                })
+        if not PSUTIL_AVAILABLE:
+            # Fallback method using /proc/mounts if psutil is not available
+            try:
+                with open('/proc/mounts', 'r', encoding='utf-8') as f:
+                    for line in f:
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            device, mountpoint, fstype = parts[0], parts[1], parts[2]
+                            # Exclude virtual filesystems
+                            if fstype not in ['tmpfs', 'devtmpfs', 'devfs', 'overlay', 'squashfs', 'proc', 'sysfs', 'cgroup', 'cgroup2']:
+                                mount_points.append({
+                                    'device': device,
+                                    'mountpoint': mountpoint,
+                                    'fstype': fstype
+                                })
+            except Exception as e:
+                print(f"Error reading /proc/mounts: {str(e)}")
+        else:
+            # Get disk partitions using psutil
+            partitions = psutil.disk_partitions(all=True)
+            
+            for partition in partitions:
+                # Exclude virtual filesystems
+                if partition.fstype not in ['tmpfs', 'devtmpfs', 'devfs', 'overlay', 'squashfs']:
+                    mount_points.append({
+                        'device': partition.device,
+                        'mountpoint': partition.mountpoint,
+                        'fstype': partition.fstype
+                    })
     except Exception as e:
         print(f"Error getting mount points: {str(e)}")
     
@@ -303,7 +327,7 @@ def get_shares() -> List[Dict[str, Any]]:
     
     try:
         # Read the Samba configuration file
-        with open(smb_conf, 'r') as f:
+        with open(smb_conf, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Parse share definitions
@@ -357,7 +381,7 @@ def add_share(share: Dict[str, Any]) -> Dict[str, Any]:
             return {'status': 'error', 'message': "Samba configuration file not found"}
         
         # Read the current configuration
-        with open(smb_conf, 'r') as f:
+        with open(smb_conf, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Check if the share already exists
@@ -373,7 +397,7 @@ read only = {share.get('read_only', 'yes')}
 """
         
         # Append the new share to the configuration
-        with open(smb_conf, 'w') as f:
+        with open(smb_conf, 'w', encoding='utf-8') as f:
             f.write(content + new_share)
         
         # Restart the Samba service
@@ -402,7 +426,7 @@ def remove_share(share_name: str) -> Dict[str, Any]:
             return {'status': 'error', 'message': "Samba configuration file not found"}
         
         # Read the current configuration
-        with open(smb_conf, 'r') as f:
+        with open(smb_conf, 'r', encoding='utf-8') as f:
             content = f.read()
         
         # Check if the share exists
@@ -414,7 +438,7 @@ def remove_share(share_name: str) -> Dict[str, Any]:
         new_content = re.sub(section_pattern, '', content, flags=re.DOTALL)
         
         # Write the updated configuration
-        with open(smb_conf, 'w') as f:
+        with open(smb_conf, 'w', encoding='utf-8') as f:
             f.write(new_content)
         
         # Restart the Samba service
@@ -450,7 +474,7 @@ map to guest = Bad User
 """
         
         # Write the configuration file
-        with open(smb_conf, 'w') as f:
+        with open(smb_conf, 'w', encoding='utf-8') as f:
             f.write(base_config)
         
         # Add shares
