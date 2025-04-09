@@ -91,12 +91,22 @@ create_virtualenv() {
         log_warning "Python venv not installed, trying to install..."
         if command -v apt-get &> /dev/null; then
             sudo apt-get update
-            sudo apt-get install -y python3-venv
+            sudo apt-get install -y python3-venv python3-dev gcc
         elif command -v yum &> /dev/null; then
-            sudo yum install -y python3-venv
+            sudo yum install -y python3-venv python3-devel gcc
         else
             log_error "Cannot install python3-venv, please install it manually"
             exit 1
+        fi
+    else
+        # Ensure Python dev headers are installed for module compilation
+        if command -v apt-get &> /dev/null; then
+            log_info "Installing Python development headers required for some modules..."
+            sudo apt-get update
+            sudo apt-get install -y python3-dev gcc
+        elif command -v yum &> /dev/null; then
+            log_info "Installing Python development headers required for some modules..."
+            sudo yum install -y python3-devel gcc
         fi
     fi
     
