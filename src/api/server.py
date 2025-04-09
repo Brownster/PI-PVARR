@@ -659,7 +659,7 @@ def create_app(test_config=None):
         Returns:
             HTML: The main page.
         """
-        return send_from_directory('../web/dist', 'index.html')
+        return send_from_directory('../web', 'index.html')
     
     @app.route('/<path:path>', methods=['GET'])
     def serve_static(path):
@@ -672,7 +672,7 @@ def create_app(test_config=None):
         Returns:
             File: The requested file.
         """
-        return send_from_directory('../web/dist', path)
+        return send_from_directory('../web', path)
     
     return app
 
