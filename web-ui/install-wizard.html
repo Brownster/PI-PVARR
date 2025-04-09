@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi-PVARR - Installation Wizard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/wizard.css">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <header>
+        <div class="menu-toggle" id="menu-toggle">
+            <i class="fas fa-bars"></i>
+        </div>
+        <div class="logo">
+            <i class="fas fa-server"></i>
+            <span>Pi-PVARR Media Server</span>
+        </div>
+        <div class="theme-toggle" id="theme-toggle">
+            <i class="fas fa-moon"></i>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <ul class="sidebar-nav">
+                <li><a href="/"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li><a href="/install" class="active"><i class="fas fa-magic"></i> Installation</a></li>
+                <li><a href="/services"><i class="fas fa-cogs"></i> Services</a></li>
+                <li><a href="/storage"><i class="fas fa-hdd"></i> Storage</a></li>
+                <li><a href="/network"><i class="fas fa-network-wired"></i> Network</a></li>
+                <li><a href="/settings"><i class="fas fa-sliders-h"></i> Settings</a></li>
+                <li><a href="/logs"><i class="fas fa-clipboard-list"></i> Logs</a></li>
+                <li><a href="/help"><i class="fas fa-question-circle"></i> Help</a></li>
+            </ul>
+        </div>
+
+        <div class="main-content" id="main-content">
+            <h1 class="page-title"><i class="fas fa-magic"></i> Installation Wizard</h1>
+            
+            <div class="wizard-container">
+                <!-- Progress Bar -->
+                <div class="wizard-progress">
+                    <div class="wizard-progress-bar">
+                        <div class="wizard-progress-fill" id="wizard-progress-fill"></div>
+                    </div>
+                    <div class="wizard-steps">
+                        <div class="wizard-step" data-step="system-check">
+                            <div class="step-indicator">1</div>
+                            <div class="step-label">System Check</div>
+                        </div>
+                        <div class="wizard-step" data-step="basic-config">
+                            <div class="step-indicator">2</div>
+                            <div class="step-label">Basic Config</div>
+                        </div>
+                        <div class="wizard-step" data-step="network-config">
+                            <div class="step-indicator">3</div>
+                            <div class="step-label">Network</div>
+                        </div>
+                        <div class="wizard-step" data-step="storage-config">
+                            <div class="step-indicator">4</div>
+                            <div class="step-label">Storage</div>
+                        </div>
+                        <div class="wizard-step" data-step="service-selection">
+                            <div class="step-indicator">5</div>
+                            <div class="step-label">Services</div>
+                        </div>
+                        <div class="wizard-step" data-step="install">
+                            <div class="step-indicator">6</div>
+                            <div class="step-label">Install</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Check Step -->
+                <div class="wizard-step-content" id="system-check">
+                    <div class="step-header">
+                        <h2><i class="fas fa-check-circle"></i> System Compatibility Check</h2>
+                        <p>Let's make sure your system is compatible with Pi-PVARR before proceeding.</p>
+                    </div>
+                    
+                    <div class="card system-check-card">
+                        <div class="card-content">
+                            <div id="system-check-loader" class="text-center">
+                                <div class="spinner"></div>
+                                <p>Checking system compatibility...</p>
+                            </div>
+                            
+                            <div id="system-check-results" class="hidden">
+                                <!-- Results will be inserted here via JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="wizard-nav">
+                        <button class="btn btn-primary" id="btn-run-system-check">
+                            <i class="fas fa-sync-alt"></i> Run Compatibility Check
+                        </button>
+                        <button class="btn btn-success" id="btn-system-check-next" disabled>
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Basic Configuration Step -->
+                <div class="wizard-step-content hidden" id="basic-config">
+                    <div class="step-header">
+                        <h2><i class="fas fa-cog"></i> Basic Configuration</h2>
+                        <p>Set up the basic parameters for your Pi-PVARR installation.</p>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-content">
+                            <form id="basic-config-form">
+                                <div class="form-group">
+                                    <label for="puid">PUID (Process User ID)</label>
+                                    <input type="number" id="puid" name="puid" value="1000" min="0" max="65535">
+                                    <small>User ID for file permissions (usually 1000 for the first user)</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="pgid">PGID (Process Group ID)</label>
+                                    <input type="number" id="pgid" name="pgid" value="1000" min="0" max="65535">
+                                    <small>Group ID for file permissions (usually 1000 for the first user)</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="timezone">Timezone</label>
+                                    <select id="timezone" name="timezone">
+                                        <option value="UTC">UTC</option>
+                                        <option value="America/New_York">America/New_York</option>
+                                        <option value="America/Chicago">America/Chicago</option>
+                                        <option value="America/Denver">America/Denver</option>
+                                        <option value="America/Los_Angeles">America/Los_Angeles</option>
+                                        <option value="Europe/London">Europe/London</option>
+                                        <option value="Europe/Paris">Europe/Paris</option>
+                                        <option value="Europe/Berlin">Europe/Berlin</option>
+                                        <option value="Asia/Tokyo">Asia/Tokyo</option>
+                                        <option value="Australia/Sydney">Australia/Sydney</option>
+                                    </select>
+                                    <small>Your local timezone for correct scheduling</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="media_dir">Media Directory</label>
+                                    <input type="text" id="media_dir" name="media_dir" value="/mnt/media">
+                                    <small>Where your media files will be stored</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="downloads_dir">Downloads Directory</label>
+                                    <input type="text" id="downloads_dir" name="downloads_dir" value="/mnt/downloads">
+                                    <small>Where your downloaded files will be temporarily stored</small>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="wizard-nav">
+                        <button class="btn btn-secondary" id="btn-basic-config-prev">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </button>
+                        <button class="btn btn-success" id="btn-basic-config-next">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Network Configuration Step -->
+                <div class="wizard-step-content hidden" id="network-config">
+                    <div class="step-header">
+                        <h2><i class="fas fa-network-wired"></i> Network Configuration</h2>
+                        <p>Configure your network settings for optimal access and security.</p>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-shield-alt"></i> VPN Configuration</h3>
+                        </div>
+                        <div class="card-content">
+                            <form id="network-config-form">
+                                <div class="form-group toggle-container">
+                                    <label for="vpn-enabled">Enable VPN for Download Clients</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="vpn-enabled" name="vpn-enabled">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <small>Secures your downloads with a VPN connection</small>
+                                </div>
+                                
+                                <div id="vpn-details" class="hidden">
+                                    <div class="form-group">
+                                        <label for="vpn-provider">VPN Provider</label>
+                                        <select id="vpn-provider" name="vpn-provider">
+                                            <option value="private internet access">Private Internet Access</option>
+                                            <option value="nordvpn">NordVPN</option>
+                                            <option value="expressvpn">ExpressVPN</option>
+                                            <option value="surfshark">Surfshark</option>
+                                            <option value="mullvad">Mullvad</option>
+                                            <option value="protonvpn">ProtonVPN</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="vpn-username">VPN Username</label>
+                                        <input type="text" id="vpn-username" name="vpn-username" placeholder="Your VPN username">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="vpn-password">VPN Password</label>
+                                        <input type="password" id="vpn-password" name="vpn-password" placeholder="Your VPN password">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="vpn-region">VPN Region</label>
+                                        <select id="vpn-region" name="vpn-region">
+                                            <option value="netherlands">Netherlands</option>
+                                            <option value="switzerland">Switzerland</option>
+                                            <option value="sweden">Sweden</option>
+                                            <option value="uk">United Kingdom</option>
+                                            <option value="canada">Canada</option>
+                                            <option value="us-east">US East</option>
+                                            <option value="us-west">US West</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-key"></i> Tailscale (Secure Remote Access)</h3>
+                        </div>
+                        <div class="card-content">
+                            <form id="tailscale-config-form">
+                                <div class="form-group toggle-container">
+                                    <label for="tailscale-enabled">Enable Tailscale</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="tailscale-enabled" name="tailscale-enabled">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <small>Enables secure access to your server from anywhere</small>
+                                </div>
+                                
+                                <div id="tailscale-details" class="hidden">
+                                    <div class="form-group">
+                                        <label for="tailscale-auth-key">Tailscale Auth Key (Optional)</label>
+                                        <input type="text" id="tailscale-auth-key" name="tailscale-auth-key" placeholder="Your Tailscale auth key">
+                                        <small>You can leave this blank and authenticate later</small>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="wizard-nav">
+                        <button class="btn btn-secondary" id="btn-network-config-prev">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </button>
+                        <button class="btn btn-success" id="btn-network-config-next">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Storage Configuration Step -->
+                <div class="wizard-step-content hidden" id="storage-config">
+                    <div class="step-header">
+                        <h2><i class="fas fa-hdd"></i> Storage Configuration</h2>
+                        <p>Configure your storage drives and file sharing options.</p>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-hdd"></i> Available Drives</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="drives-loading" class="text-center">
+                                <div class="spinner"></div>
+                                <p>Loading available drives...</p>
+                            </div>
+                            
+                            <div id="drives-container" class="hidden">
+                                <!-- Drives will be loaded dynamically by DriveManager -->
+                            </div>
+
+                            <div class="form-group toggle-container">
+                                <label for="format-undetected">Show Advanced Drive Options</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="show-advanced-drive-options">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <small>Show format, mount, and unmount options</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-network-wired"></i> Network Shares</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="network-shares-container">
+                                <!-- Network shares will be loaded dynamically by DriveManager -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-folder-open"></i> Media Paths</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="media-paths-container">
+                                <!-- Media paths will be loaded dynamically by DriveManager -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-share-alt"></i> File Sharing</h3>
+                        </div>
+                        <div class="card-content">
+                            <form id="file-sharing-form">
+                                <div class="form-group">
+                                    <label for="share-method">Share Method</label>
+                                    <select id="share-method" name="share-method">
+                                        <option value="samba">Samba (Windows, Mac, Linux)</option>
+                                        <option value="nfs">NFS (Linux, macOS)</option>
+                                    </select>
+                                    <small>How to share your media with other devices on your network</small>
+                                </div>
+                                
+                                <div id="shares-container">
+                                    <div class="share-item">
+                                        <div class="form-group">
+                                            <label for="share-name-1">Share Name</label>
+                                            <input type="text" id="share-name-1" name="share-name-1" value="Media">
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label for="share-path-1">Share Path</label>
+                                            <input type="text" id="share-path-1" name="share-path-1" value="/mnt/media">
+                                        </div>
+                                        
+                                        <div class="form-group toggle-container">
+                                            <label for="share-public-1">Public (No Authentication)</label>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="share-public-1" name="share-public-1">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-share">
+                                    <i class="fas fa-plus"></i> Add Another Share
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="wizard-nav">
+                        <button class="btn btn-secondary" id="btn-storage-config-prev">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </button>
+                        <button class="btn btn-success" id="btn-storage-config-next">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Service Selection Step -->
+                <div class="wizard-step-content hidden" id="service-selection">
+                    <div class="step-header">
+                        <h2><i class="fas fa-th-large"></i> Service Selection</h2>
+                        <p>Choose which services you want to install in your media server.</p>
+                    </div>
+                    
+                    <div class="services-grid">
+                        <!-- Arr Apps -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-tv"></i> Media Management</h3>
+                            </div>
+                            <div class="card-content">
+                                <form id="arr-apps-form">
+                                    <div class="form-group toggle-container">
+                                        <label for="service-sonarr">
+                                            <span class="service-name">Sonarr</span>
+                                            <span class="service-description">TV Series Management</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-sonarr" name="service-sonarr" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-radarr">
+                                            <span class="service-name">Radarr</span>
+                                            <span class="service-description">Movie Management</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-radarr" name="service-radarr" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-prowlarr">
+                                            <span class="service-name">Prowlarr</span>
+                                            <span class="service-description">Indexer Management</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-prowlarr" name="service-prowlarr" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-lidarr">
+                                            <span class="service-name">Lidarr</span>
+                                            <span class="service-description">Music Management</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-lidarr" name="service-lidarr">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-readarr">
+                                            <span class="service-name">Readarr</span>
+                                            <span class="service-description">Book Management</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-readarr" name="service-readarr">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-bazarr">
+                                            <span class="service-name">Bazarr</span>
+                                            <span class="service-description">Subtitle Management</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-bazarr" name="service-bazarr">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Download Clients -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-download"></i> Download Clients</h3>
+                            </div>
+                            <div class="card-content">
+                                <form id="download-clients-form">
+                                    <div class="form-group toggle-container">
+                                        <label for="service-transmission">
+                                            <span class="service-name">Transmission</span>
+                                            <span class="service-description">Torrent Downloader</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-transmission" name="service-transmission" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-qbittorrent">
+                                            <span class="service-name">qBittorrent</span>
+                                            <span class="service-description">Alternative Torrent Client</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-qbittorrent" name="service-qbittorrent">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-nzbget">
+                                            <span class="service-name">NZBGet</span>
+                                            <span class="service-description">Usenet Downloader</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-nzbget" name="service-nzbget">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-sabnzbd">
+                                            <span class="service-name">SABnzbd</span>
+                                            <span class="service-description">Alternative Usenet Client</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-sabnzbd" name="service-sabnzbd">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-jdownloader">
+                                            <span class="service-name">JDownloader</span>
+                                            <span class="service-description">Direct Download Manager</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-jdownloader" name="service-jdownloader">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Media Servers -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-film"></i> Media Servers</h3>
+                            </div>
+                            <div class="card-content">
+                                <form id="media-servers-form">
+                                    <div class="form-group toggle-container">
+                                        <label for="service-jellyfin">
+                                            <span class="service-name">Jellyfin</span>
+                                            <span class="service-description">Open Source Media Server</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-jellyfin" name="service-jellyfin" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-plex">
+                                            <span class="service-name">Plex</span>
+                                            <span class="service-description">Popular Media Server</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-plex" name="service-plex">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-emby">
+                                            <span class="service-name">Emby</span>
+                                            <span class="service-description">Alternative Media Server</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-emby" name="service-emby">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Utilities -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-tools"></i> Utilities</h3>
+                            </div>
+                            <div class="card-content">
+                                <form id="utilities-form">
+                                    <div class="form-group toggle-container">
+                                        <label for="service-heimdall">
+                                            <span class="service-name">Heimdall</span>
+                                            <span class="service-description">Application Dashboard</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-heimdall" name="service-heimdall" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-overseerr">
+                                            <span class="service-name">Overseerr</span>
+                                            <span class="service-description">Media Request Manager</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-overseerr" name="service-overseerr">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-tautulli">
+                                            <span class="service-name">Tautulli</span>
+                                            <span class="service-description">Plex Monitoring Tool</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-tautulli" name="service-tautulli">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-portainer">
+                                            <span class="service-name">Portainer</span>
+                                            <span class="service-description">Docker UI Manager</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-portainer" name="service-portainer" checked>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="form-group toggle-container">
+                                        <label for="service-get-iplayer">
+                                            <span class="service-name">Get iPlayer</span>
+                                            <span class="service-description">BBC Content Downloader</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="service-get-iplayer" name="service-get-iplayer">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="wizard-nav">
+                        <button class="btn btn-secondary" id="btn-service-selection-prev">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </button>
+                        <button class="btn btn-success" id="btn-service-selection-next">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Install Step -->
+                <div class="wizard-step-content hidden" id="install">
+                    <div class="step-header">
+                        <h2><i class="fas fa-check-circle"></i> Review & Install</h2>
+                        <p>Review your configuration and start the installation process.</p>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-list-check"></i> Installation Summary</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="summary-content">
+                                <!-- Generated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Before You Begin</h3>
+                        </div>
+                        <div class="card-content">
+                            <ul class="checklist">
+                                <li>The installation process may take several minutes to complete</li>
+                                <li>Your system may restart services during installation</li>
+                                <li>All configuration can be changed later from the Settings page</li>
+                                <li>If any issues occur, detailed logs will be available</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="wizard-nav">
+                        <button class="btn btn-secondary" id="btn-install-prev">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </button>
+                        <button class="btn btn-success" id="btn-start-install">
+                            <i class="fas fa-play"></i> Start Installation
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Installation Progress -->
+                <div class="wizard-step-content hidden" id="install-progress">
+                    <div class="step-header">
+                        <h2><i class="fas fa-spinner fa-spin"></i> Installation Progress</h2>
+                        <p>Please wait while your Pi-PVARR system is being installed...</p>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-tasks"></i> Installation Status</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="progress-container">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="install-progress-bar" style="width: 0%;"></div>
+                                </div>
+                                <div class="progress-info">
+                                    <span id="install-percentage">0%</span> - 
+                                    <span id="install-stage">Preparing installation...</span>
+                                </div>
+                            </div>
+                            
+                            <div class="stages-container">
+                                <div class="stage-list">
+                                    <!-- Will be filled with current stages -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-terminal"></i> Installation Log</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="log-container">
+                                <pre id="install-log" class="install-log">Starting installation...</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Installation Complete -->
+                <div class="wizard-step-content hidden" id="install-complete">
+                    <div class="step-header">
+                        <h2><i class="fas fa-check-circle"></i> Installation Complete!</h2>
+                        <p>Your Pi-PVARR system has been successfully installed.</p>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-door-open"></i> Getting Started</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>Your Pi-PVARR system is now up and running! Here are the next steps to get started:</p>
+                            
+                            <div class="getting-started-steps">
+                                <div class="getting-started-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h4>Access Your Services</h4>
+                                        <p>Access all of your services through the dashboard below. You'll need to set up each service with your preferred settings.</p>
+                                        <div id="service-urls" class="service-url-list">
+                                            <!-- Will be filled dynamically -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="getting-started-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h4>Configure Indexers</h4>
+                                        <p>Set up Prowlarr with your indexers, then connect it to your other services like Sonarr and Radarr.</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="getting-started-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <h4>Configure Media Libraries</h4>
+                                        <p>Set up your media libraries in your media server (Jellyfin, Plex, or Emby) to start enjoying your content.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-life-ring"></i> Need Help?</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>If you need help with setting up your services, check out our documentation and community resources:</p>
+                            
+                            <div class="help-links">
+                                <a href="#" class="btn btn-primary"><i class="fas fa-book"></i> Documentation</a>
+                                <a href="#" class="btn btn-secondary"><i class="fas fa-users"></i> Community Forum</a>
+                                <a href="#" class="btn btn-secondary"><i class="fab fa-github"></i> GitHub Issues</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="wizard-nav">
+                        <a href="/" class="btn btn-success">
+                            <i class="fas fa-home"></i> Go to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api-client.js"></script>
+    <script src="/js/websocket-client.js"></script>
+    <script src="/js/drive-manager.js"></script>
+    <script src="/js/wizard.js"></script>
+</body>
+</html>

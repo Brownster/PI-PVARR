@@ -1,0 +1,19 @@
+"""
+PyTest configuration file for Pi-PVARR tests.
+
+This module contains shared fixtures and configuration for all tests.
+"""
+
+import pytest
+import os
+import sys
+
+# Add the root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
+# Add shared fixtures here
+@pytest.fixture
+def temp_dir(tmpdir):
+    """Create a temporary directory for test files."""
+    return tmpdir

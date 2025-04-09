@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi-PVARR Media Server</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <div class="logo">
+        <i class="fas fa-server"></i>
+        <span>Pi-PVARR Media Server</span>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#" class="active" data-tab="dashboard">Dashboard</a></li>
+          <li><a href="#" data-tab="docker">Docker</a></li>
+          <li><a href="#" data-tab="storage">Storage</a></li>
+          <li><a href="#" data-tab="network">Network</a></li>
+          <li><a href="#" data-tab="settings">Settings</a></li>
+        </ul>
+      </nav>
+      <button class="theme-toggle" id="theme-toggle">
+        <i class="fas fa-moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="dashboard-layout">
+      <!-- Left Column (Top Half) - System Health -->
+      <div class="panel system-health">
+        <div class="panel-header">
+          <h2><i class="fas fa-heartbeat"></i> System Health</h2>
+          <button class="refresh-btn" id="refresh-system"><i class="fas fa-sync-alt"></i></button>
+        </div>
+        <div class="panel-content">
+          <div class="grid">
+            <div class="stat">
+              <span class="stat-label">Hostname:</span>
+              <span class="stat-value" id="hostname">Loading...</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Operating System:</span>
+              <span class="stat-value" id="os">Loading...</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Architecture:</span>
+              <span class="stat-value" id="architecture">Loading...</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">IP Address:</span>
+              <span class="stat-value" id="ip-address">Loading...</span>
+            </div>
+          </div>
+          
+          <!-- Resource Usage -->
+          <div class="resource-metric">
+            <div class="resource-header">
+              <h3><i class="fas fa-microchip"></i> CPU Usage</h3>
+              <span class="resource-value" id="cpu-usage-value">0%</span>
+            </div>
+            <div class="progress-container">
+              <div class="progress-bar" id="cpu-usage-bar" style="width: 0%;">
+                <span class="progress-text" id="cpu-usage">0%</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="resource-metric">
+            <div class="resource-header">
+              <h3><i class="fas fa-memory"></i> RAM Usage</h3>
+              <span class="resource-value" id="memory-usage-value">0 MB / 0 GB</span>
+            </div>
+            <div class="progress-container">
+              <div class="progress-bar" id="memory-usage-bar" style="width: 0%;">
+                <span class="progress-text" id="memory-usage">0%</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="resource-metric">
+            <div class="resource-header">
+              <h3><i class="fas fa-hdd"></i> Disk Usage</h3>
+              <span class="resource-value" id="disk-usage-value">0 GB / 0 GB</span>
+            </div>
+            <div class="progress-container">
+              <div class="progress-bar" id="disk-usage-bar" style="width: 0%;">
+                <span class="progress-text" id="disk-usage">0%</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="resource-metric">
+            <div class="resource-header">
+              <h3><i class="fas fa-thermometer-half"></i> Temperature</h3>
+              <span class="resource-value" id="temperature-value">0°C</span>
+            </div>
+            <div class="progress-container">
+              <div class="progress-bar" id="temperature-bar" style="width: 0%;">
+                <span class="progress-text" id="temperature">0°C</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Left Column (Bottom Half) - Storage Info -->
+      <div class="panel storage-info">
+        <div class="panel-header">
+          <h2><i class="fas fa-database"></i> Storage & Shares</h2>
+          <button class="refresh-btn" id="refresh-storage"><i class="fas fa-sync-alt"></i></button>
+        </div>
+        <div class="panel-content">
+          <div class="tabs storage-tabs">
+            <button class="tab active" data-storage-tab="drives">Drives</button>
+            <button class="tab" data-storage-tab="shares">Shares</button>
+          </div>
+          
+          <!-- Drives Tab Content -->
+          <div class="tab-content active" id="drives-tab">
+            <div id="drives-container">
+              <table class="drives-table">
+                <thead>
+                  <tr>
+                    <th>Device</th>
+                    <th>Mount Point</th>
+                    <th>Size</th>
+                    <th>Used</th>
+                  </tr>
+                </thead>
+                <tbody id="drives-table-body">
+                  <tr>
+                    <td colspan="4">Loading drives...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="button-row">
+              <button class="btn btn-primary" id="add-drive">
+                <i class="fas fa-plus"></i> Add Drive
+              </button>
+            </div>
+          </div>
+          
+          <!-- Shares Tab Content -->
+          <div class="tab-content" id="shares-tab">
+            <div id="shares-container">
+              <table class="shares-table">
+                <thead>
+                  <tr>
+                    <th>Share Name</th>
+                    <th>Path</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="shares-table-body">
+                  <tr>
+                    <td colspan="4">Loading shares...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="button-row">
+              <button class="btn btn-primary" id="add-share">
+                <i class="fas fa-plus"></i> Add Share
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Right Column - Main Content Area -->
+      <div class="panel main-content">
+        <!-- Tab Navigation for Main Content -->
+        <div class="tab-navigation">
+          <div class="tabs main-tabs">
+            <button class="tab active" data-main-tab="services">Services</button>
+            <button class="tab" data-main-tab="media-folders">Media Folders</button>
+            <button class="tab" data-main-tab="network-status">Network</button>
+            <button class="tab" data-main-tab="logs">Logs</button>
+          </div>
+        </div>
+        
+        <!-- Services Tab Content -->
+        <div class="tab-content active" id="services-tab">
+          <div class="panel-header">
+            <h2><i class="fas fa-cubes"></i> Docker Services</h2>
+            <div class="header-actions">
+              <button class="btn btn-primary" id="start-all-services">
+                <i class="fas fa-play"></i> Start All
+              </button>
+              <button class="btn btn-warning" id="restart-all-services">
+                <i class="fas fa-sync-alt"></i> Restart All
+              </button>
+              <button class="btn btn-danger" id="stop-all-services">
+                <i class="fas fa-stop"></i> Stop All
+              </button>
+              <button class="btn btn-secondary" id="update-all-services">
+                <i class="fas fa-arrow-up"></i> Update All
+              </button>
+            </div>
+          </div>
+          
+          <div class="panel-content">
+            <div class="category-tabs">
+              <button class="category-tab active" data-category="all">All</button>
+              <button class="category-tab" data-category="media">Media Management</button>
+              <button class="category-tab" data-category="download">Download Clients</button>
+              <button class="category-tab" data-category="media-servers">Media Servers</button>
+              <button class="category-tab" data-category="utilities">Utilities</button>
+            </div>
+            
+            <div class="service-container">
+              <table class="services-table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>URL</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="services-table-body">
+                  <tr>
+                    <td colspan="5">Loading services...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="button-row">
+              <button class="btn btn-primary" id="add-service">
+                <i class="fas fa-plus"></i> Add Service
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Media Folders Tab Content -->
+        <div class="tab-content" id="media-folders-tab">
+          <!-- Media folders content will be loaded here -->
+          <p>Media Folders Tab Content...</p>
+        </div>
+        
+        <!-- Network Status Tab Content -->
+        <div class="tab-content" id="network-status-tab">
+          <!-- Network status content will be loaded here -->
+          <p>Network Status Tab Content...</p>
+        </div>
+        
+        <!-- Logs Tab Content -->
+        <div class="tab-content" id="logs-tab">
+          <!-- Logs content will be loaded here -->
+          <p>Logs Tab Content...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Pi-PVARR Media Server</p>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+  </div>
+  
+  <!-- First Time Setup Modal -->
+  <div id="setup-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Welcome to Pi-PVARR Media Server</h2>
+        <span class="close-modal" id="close-setup">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="setup-steps">
+          <div class="setup-navigation">
+            <ul class="setup-nav">
+              <li class="active" data-step="welcome"><i class="fas fa-home"></i> Welcome</li>
+              <li data-step="system"><i class="fas fa-server"></i> System</li>
+              <li data-step="storage"><i class="fas fa-hdd"></i> Storage</li>
+              <li data-step="network"><i class="fas fa-network-wired"></i> Network</li>
+              <li data-step="services"><i class="fas fa-cubes"></i> Services</li>
+              <li data-step="finish"><i class="fas fa-check-circle"></i> Finish</li>
+            </ul>
+          </div>
+          
+          <div class="setup-content">
+            <!-- Setup wizard content will be loaded dynamically -->
+            <p>Setting up Pi-PVARR...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api-client.js" type="module"></script>
+  <script src="js/main.js" type="module"></script>
+</body>
+</html>
