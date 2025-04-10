@@ -140,35 +140,339 @@ def get_mount_points() -> List[Dict[str, Any]]:
     return mount_points
 
 
-def mount_drive(device: str, mountpoint: str, fstype: str) -> Dict[str, Any]:
+def validate_device(device: str, fstype: str) -> Dict[str, Any]:
     """
-    Mount a drive.
+    Validate that a device exists and is usable before attempting to mount.
     
     Args:
-        device (str): The device path (e.g., /dev/sda1).
+        device (str): The device path or network share to validate.
+        fstype (str): The filesystem type (e.g., ext4, nfs, cifs).
+        
+    Returns:
+        Dict[str, Any]: Dictionary with validation status and message.
+    """
+    try:
+        # Handle network shares (NFS, CIFS/SMB)
+        if fstype in ['nfs', 'cifs']:
+            # For NFS, format is typically server:/path
+            if fstype == 'nfs':
+                if ':' not in device:
+                    return {'status': 'error', 'message': f"Invalid NFS share format. Expected 'server:/path', got '{device}'"}
+                
+                server, _ = device.split(':', 1)
+                
+                # Check if the server is reachable
+                ping_result = subprocess.run(
+                    ['ping', '-c', '1', '-W', '5', server],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                
+                if ping_result.returncode != 0:
+                    return {'status': 'error', 'message': f"NFS server '{server}' is not reachable"}
+                    
+                # Optional: Test NFS connectivity with showmount
+                # showmount requires nfs-common package
+                if os.path.exists('/usr/sbin/showmount'):
+                    showmount_result = subprocess.run(
+                        ['showmount', '-e', server],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    
+                    if showmount_result.returncode != 0:
+                        return {'status': 'warning', 'message': f"NFS server '{server}' doesn't respond to showmount. It may not be an NFS server or exports may be restricted."}
+                
+            # For CIFS, format is typically //server/share
+            elif fstype == 'cifs':
+                if not (device.startswith('//') and '/' in device[2:]):
+                    return {'status': 'error', 'message': f"Invalid CIFS share format. Expected '//server/share', got '{device}'"}
+                
+                server = device[2:].split('/', 1)[0]
+                
+                # Check if the server is reachable
+                ping_result = subprocess.run(
+                    ['ping', '-c', '1', '-W', '5', server],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                
+                if ping_result.returncode != 0:
+                    return {'status': 'error', 'message': f"CIFS server '{server}' is not reachable"}
+            
+            return {'status': 'success', 'message': f"Network share '{device}' is valid"}
+                
+        # For local block devices
+        elif device.startswith('/dev/'):
+            # Check if device exists
+            if not os.path.exists(device):
+                return {'status': 'error', 'message': f"Device {device} does not exist"}
+                
+            # Check if it's a valid block device
+            lsblk_result = subprocess.run(
+                ['lsblk', '-no', 'TYPE', device],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            
+            if lsblk_result.returncode != 0:
+                return {'status': 'error', 'message': f"Not a valid block device: {device}"}
+                
+            device_type = lsblk_result.stdout.strip()
+            if not device_type or device_type == 'disk':
+                return {'status': 'error', 'message': f"Device {device} is a whole disk, not a partition"}
+            
+            # For USB drives, check if it's a removable device
+            if 'usb' in device.lower() or any(x in device.lower() for x in ['sd', 'mmcblk']):
+                removable_path = f"/sys/block/{os.path.basename(device.rstrip('0123456789'))}/removable"
+                if os.path.exists(removable_path):
+                    with open(removable_path, 'r') as f:
+                        removable = f.read().strip() == '1'
+                    
+                    if removable:
+                        return {
+                            'status': 'warning',
+                            'message': f"Device {device} appears to be a removable USB drive. This may not be reliable for permanent storage."
+                        }
+            
+            return {'status': 'success', 'message': f"Device {device} is valid"}
+        
+        # For bind mounts
+        elif os.path.exists(device) and os.path.isdir(device):
+            return {'status': 'success', 'message': f"Directory {device} is valid for bind mount"}
+        
+        return {'status': 'error', 'message': f"Unknown device type or format: {device}"}
+    except Exception as e:
+        return {'status': 'error', 'message': f"Error validating device: {str(e)}"}
+
+def verify_mount(mountpoint: str, uid: int, gid: int) -> Dict[str, Any]:
+    """
+    Verify a mounted filesystem is accessible and has appropriate permissions.
+    
+    Args:
+        mountpoint (str): The mount point to verify.
+        uid (int): User ID that should have access.
+        gid (int): Group ID that should have access.
+        
+    Returns:
+        Dict[str, Any]: Dictionary with verification status and message.
+    """
+    try:
+        # Check if the mountpoint is actually mounted
+        if not os.path.ismount(mountpoint):
+            return {'status': 'error', 'message': f"Path {mountpoint} is not a mount point"}
+            
+        # Check if we can write to the mountpoint
+        test_dir = os.path.join(mountpoint, '.pi_pvarr_write_test')
+        try:
+            os.makedirs(test_dir, exist_ok=True)
+            os.chown(test_dir, uid, gid)
+            
+            # Try to write a small test file
+            test_file = os.path.join(test_dir, 'test.txt')
+            with open(test_file, 'w') as f:
+                f.write('Test write access')
+                
+            # Clean up test directory
+            os.unlink(test_file)
+            os.rmdir(test_dir)
+        except (PermissionError, OSError) as e:
+            return {'status': 'error', 'message': f"Cannot write to mount point: {str(e)}"}
+            
+        # Check available space
+        if PSUTIL_AVAILABLE:
+            try:
+                usage = psutil.disk_usage(mountpoint)
+                available_gb = usage.free / (1024**3)
+                
+                if available_gb < 10:  # Minimum 10GB recommended
+                    return {
+                        'status': 'warning', 
+                        'message': f"Only {available_gb:.1f} GB available on {mountpoint}, minimum 10GB recommended"
+                    }
+            except Exception:
+                pass
+                
+        return {'status': 'success', 'message': f"Mount point {mountpoint} verified successfully"}
+    except Exception as e:
+        return {'status': 'error', 'message': f"Error verifying mount point: {str(e)}"}
+
+def add_to_fstab(device: str, mountpoint: str, fstype: str, mount_options: str = None) -> Dict[str, Any]:
+    """
+    Add mount configuration to fstab for persistence across reboots.
+    
+    Args:
+        device (str): The device path or network share.
+        mountpoint (str): The mount point.
+        fstype (str): The filesystem type.
+        mount_options (str, optional): Additional mount options.
+        
+    Returns:
+        Dict[str, Any]: Dictionary with status and message.
+    """
+    try:
+        # Define default options based on filesystem type if not provided
+        if not mount_options:
+            if fstype == 'nfs':
+                mount_options = "rw,soft,intr,noatime"
+            elif fstype == 'cifs':
+                mount_options = "rw,guest,iocharset=utf8"
+            elif 'usb' in device or (fstype in ['vfat', 'ntfs', 'exfat']):
+                mount_options = "rw,noatime,uid=1000,gid=1000"
+            else:
+                mount_options = "defaults"
+        
+        # For block devices, use UUID if possible
+        if device.startswith('/dev/'):
+            blkid_result = subprocess.run(
+                ['blkid', '-s', 'UUID', '-o', 'value', device],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            
+            if blkid_result.returncode == 0 and blkid_result.stdout.strip():
+                uuid = blkid_result.stdout.strip()
+                fstab_line = f"UUID={uuid} {mountpoint} {fstype} {mount_options} 0 2"
+            else:
+                fstab_line = f"{device} {mountpoint} {fstype} {mount_options} 0 2"
+        else:
+            # For network shares and other mount types
+            fstab_line = f"{device} {mountpoint} {fstype} {mount_options} 0 0"
+            
+        # Check if entry already exists
+        with open('/etc/fstab', 'r') as f:
+            fstab_content = f.read()
+            
+        if mountpoint in fstab_content:
+            return {'status': 'warning', 'message': f"Mount point {mountpoint} already exists in fstab"}
+            
+        # Add to fstab
+        with open('/etc/fstab', 'a') as f:
+            f.write(f"\n# Added by Pi-PVARR\n{fstab_line}\n")
+            
+        return {'status': 'success', 'message': f"Added {device} to fstab for persistent mounting"}
+    except Exception as e:
+        return {'status': 'error', 'message': f"Error updating fstab: {str(e)}"}
+
+def mount_drive(device: str, mountpoint: str, fstype: str, mount_options: str = None, add_to_fstab_flag: bool = False) -> Dict[str, Any]:
+    """
+    Mount a drive or network share.
+    
+    Args:
+        device (str): The device path (e.g., /dev/sda1) or network share (e.g., 192.168.1.100:/share).
         mountpoint (str): The mount point (e.g., /mnt/media).
-        fstype (str): The filesystem type (e.g., ext4).
+        fstype (str): The filesystem type (e.g., ext4, nfs, cifs).
+        mount_options (str, optional): Additional mount options.
+        add_to_fstab_flag (bool, optional): Whether to add entry to fstab for persistence.
     
     Returns:
         Dict[str, Any]: Dictionary with status and message.
     """
     try:
+        # First, validate the device
+        validation_result = validate_device(device, fstype)
+        if validation_result['status'] == 'error':
+            return validation_result
+        
         # Create the mount point directory if it doesn't exist
         os.makedirs(mountpoint, exist_ok=True)
         
+        # Determine mount type
+        is_network_mount = False
+        mount_cmd = ['mount']
+        
+        # Add filesystem type
+        mount_cmd.extend(['-t', fstype])
+        
+        # Add mount options if provided
+        if mount_options:
+            mount_cmd.extend(['-o', mount_options])
+        else:
+            # Default options based on filesystem type
+            if fstype == 'nfs':
+                is_network_mount = True
+                mount_cmd.extend(['-o', 'rw,soft,intr,noatime'])
+            elif fstype == 'cifs':
+                is_network_mount = True
+                mount_cmd.extend(['-o', 'rw,guest,iocharset=utf8'])
+            elif 'usb' in device or (fstype in ['vfat', 'ntfs', 'exfat']):
+                # Common USB drive filesystems
+                mount_cmd.extend(['-o', 'rw,noatime,uid=1000,gid=1000'])
+        
+        # Add device and mountpoint
+        mount_cmd.extend([device, mountpoint])
+        
+        # Install necessary packages for network filesystems if needed
+        if is_network_mount:
+            if fstype == 'nfs' and not os.path.exists('/usr/sbin/mount.nfs'):
+                install_result = _install_package('nfs-common')
+                if not install_result:
+                    return {'status': 'error', 'message': "Failed to install NFS support (nfs-common package)"}
+            elif fstype == 'cifs' and not os.path.exists('/usr/sbin/mount.cifs'):
+                install_result = _install_package('cifs-utils')
+                if not install_result:
+                    return {'status': 'error', 'message': "Failed to install CIFS support (cifs-utils package)"}
+        
         # Mount the drive
         result = subprocess.run(
-            ['mount', '-t', fstype, device, mountpoint],
+            mount_cmd,
             capture_output=True,
             text=True
         )
         
-        if result.returncode == 0:
-            return {'status': 'success', 'message': f"Device {device} mounted at {mountpoint}"}
-        else:
+        if result.returncode != 0:
             return {'status': 'error', 'message': f"Failed to mount {device}: {result.stderr}"}
+        
+        # Add to fstab if requested
+        if add_to_fstab_flag:
+            fstab_result = add_to_fstab(device, mountpoint, fstype, mount_options)
+            if fstab_result['status'] == 'error':
+                # If fstab update fails, we should unmount and return the error
+                unmount_drive(mountpoint)
+                return fstab_result
+            
+            # If it succeeded or just had a warning, continue
+            fstab_message = f" and {fstab_result['message']}"
+        else:
+            fstab_message = ""
+        
+        return {'status': 'success', 'message': f"Device {device} mounted at {mountpoint}{fstab_message}"}
     except Exception as e:
         return {'status': 'error', 'message': f"Error mounting drive: {str(e)}"}
+
+def _install_package(package_name: str) -> bool:
+    """
+    Install a package if it's not already installed.
+    
+    Args:
+        package_name (str): The name of the package to install.
+        
+    Returns:
+        bool: True if installation was successful, False otherwise.
+    """
+    try:
+        # Check if running as root
+        if os.geteuid() != 0:
+            # Try using sudo
+            install_cmd = ['sudo', 'apt-get', 'install', '-y', package_name]
+        else:
+            install_cmd = ['apt-get', 'install', '-y', package_name]
+            
+        result = subprocess.run(
+            install_cmd,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 def unmount_drive(mountpoint: str) -> Dict[str, Any]:

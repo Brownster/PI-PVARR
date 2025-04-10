@@ -383,20 +383,80 @@ def setup_storage_configuration(storage_config: Dict[str, Any]) -> Dict[str, Any
             _installation_status.add_log("Configuring mount points")
             
             mount_points = storage_config.get("mount_points", [])
+            critical_mount_failures = []
             
             for mount_point in mount_points:
                 device = mount_point.get("device")
                 mount_path = mount_point.get("path")
                 fs_type = mount_point.get("fs_type", "auto")
+                mount_options = mount_point.get("mount_options")
+                add_to_fstab_flag = mount_point.get("add_to_fstab", True)
+                is_critical = mount_point.get("is_critical", False)
                 
                 if device and mount_path:
                     _installation_status.add_log(f"Mounting {device} to {mount_path}")
-                    mount_result = storage_manager.mount_drive(device, mount_path, fs_type)
+                    
+                    # First validate the device
+                    validation_result = storage_manager.validate_device(device, fs_type)
+                    if validation_result["status"] == "error":
+                        error_msg = f"Device validation failed for {device}: {validation_result.get('message')}"
+                        _installation_status.add_error(error_msg)
+                        if is_critical:
+                            critical_mount_failures.append(error_msg)
+                        continue
+                    elif validation_result["status"] == "warning":
+                        _installation_status.add_log(f"WARNING: {validation_result.get('message')}")
+                    
+                    # Attempt mounting with our enhanced mount_drive function
+                    mount_result = storage_manager.mount_drive(
+                        device, 
+                        mount_path, 
+                        fs_type, 
+                        mount_options, 
+                        add_to_fstab_flag
+                    )
                     
                     if mount_result["status"] != "success":
-                        _installation_status.add_error(f"Failed to mount {device}: {mount_result.get('message')}")
+                        error_msg = f"Failed to mount {device}: {mount_result.get('message')}"
+                        _installation_status.add_error(error_msg)
+                        if is_critical:
+                            critical_mount_failures.append(error_msg)
+                        continue
+                    
+                    # Verify the mount if successful
+                    verify_result = storage_manager.verify_mount(
+                        mount_path,
+                        uid=current_config.get("puid", 1000),
+                        gid=current_config.get("pgid", 1000)
+                    )
+                    
+                    if verify_result["status"] == "error":
+                        error_msg = f"Mount verification failed for {mount_path}: {verify_result.get('message')}"
+                        _installation_status.add_error(error_msg)
+                        if is_critical:
+                            critical_mount_failures.append(error_msg)
+                            
+                        # Unmount failed mount to prevent partial configuration
+                        _installation_status.add_log(f"Unmounting {mount_path} due to verification failure")
+                        storage_manager.unmount_drive(mount_path)
+                    elif verify_result["status"] == "warning":
+                        _installation_status.add_log(f"WARNING: {verify_result.get('message')}")
                 else:
                     _installation_status.add_log(f"WARNING: Skipping mount point with missing device or path")
+            
+            # Block installation if critical mounts failed
+            if critical_mount_failures:
+                return {
+                    "status": "error",
+                    "message": "Critical storage mounts failed, cannot continue installation",
+                    "details": critical_mount_failures
+                }
+            
+            # Store critical mount paths in configuration for boot script
+            current_config["critical_mounts"] = [
+                mount_point["path"] for mount_point in mount_points 
+                if mount_point.get("is_critical", False) and mount_point.get("path")
+            ]
         
         # Process media directories configuration
         if "media_directory" in storage_config:
@@ -417,7 +477,15 @@ def setup_storage_configuration(storage_config: Dict[str, Any]) -> Dict[str, Any
                 )
                 
                 if media_dir_result["status"] != "success":
-                    _installation_status.add_error(f"Failed to create media directories: {media_dir_result.get('message')}")
+                    error_msg = f"Failed to create media directories: {media_dir_result.get('message')}"
+                    _installation_status.add_error(error_msg)
+                    
+                    # This is critical for most services, so we should fail here
+                    if storage_config.get("require_media_directory", True):
+                        return {
+                            "status": "error",
+                            "message": error_msg
+                        }
         
         # Process downloads directory configuration
         if "downloads_directory" in storage_config:
@@ -436,7 +504,15 @@ def setup_storage_configuration(storage_config: Dict[str, Any]) -> Dict[str, Any
                         os.makedirs(downloads_dir, exist_ok=True)
                         os.chown(downloads_dir, current_config.get("puid", 1000), current_config.get("pgid", 1000))
                     except Exception as e:
-                        _installation_status.add_error(f"Failed to create downloads directory: {str(e)}")
+                        error_msg = f"Failed to create downloads directory: {str(e)}"
+                        _installation_status.add_error(error_msg)
+                        
+                        # This is critical for download clients, so fail if required
+                        if storage_config.get("require_downloads_directory", True):
+                            return {
+                                "status": "error",
+                                "message": error_msg
+                            }
         
         # Process file sharing configuration (Samba/NFS)
         if "file_sharing" in storage_config:
@@ -468,6 +544,12 @@ def setup_storage_configuration(storage_config: Dict[str, Any]) -> Dict[str, Any
                         
                         if share_result["status"] != "success":
                             _installation_status.add_error(f"Failed to add Samba share {share_name}: {share_result.get('message')}")
+            
+            # Add support for NFS shares if requested
+            elif share_type == "nfs" and shares:
+                _installation_status.add_log("Setting up NFS exports")
+                # Would need to implement NFS export configuration
+                _installation_status.add_log("WARNING: NFS export configuration not yet implemented")
         
         # Save updated configuration
         config.save_config_wrapper(current_config)
@@ -981,6 +1063,88 @@ def perform_post_installation() -> Dict[str, Any]:
         
         # Get system configuration
         system_config = config.get_config()
+        
+        # Check if there are critical mount points and set up the wait-for-mounts script
+        if "critical_mounts" in system_config and system_config["critical_mounts"]:
+            _installation_status.add_log("Setting up mount point monitoring for critical storage")
+            
+            # Ensure the config directory exists
+            config_dir = "/opt/pi-pvarr/config"
+            os.makedirs(config_dir, exist_ok=True)
+            
+            # Create the critical mounts configuration file
+            with open(os.path.join(config_dir, "critical-mounts.conf"), "w") as f:
+                for mount in system_config["critical_mounts"]:
+                    f.write(f"{mount}\n")
+            
+            # Copy the wait-for-mounts script to the proper location
+            script_src = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+                                      "scripts", "wait-for-mounts.sh")
+            script_dst = "/opt/pi-pvarr/bin/wait-for-mounts.sh"
+            
+            # Create bin directory
+            os.makedirs(os.path.dirname(script_dst), exist_ok=True)
+            
+            # Copy script and make it executable
+            import shutil
+            shutil.copy2(script_src, script_dst)
+            os.chmod(script_dst, 0o755)
+            
+            # Set up systemd service
+            systemd_dir = "/etc/systemd/system"
+            if os.path.exists(systemd_dir):
+                service_file = os.path.join(systemd_dir, "pi-pvarr-mounts.service")
+                
+                service_content = """[Unit]
+Description=Pi-PVARR Mount Wait Service
+Before=docker.service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/pi-pvarr/bin/wait-for-mounts.sh
+TimeoutSec=600
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+"""
+                # Write the service file
+                try:
+                    with open(service_file, "w") as f:
+                        f.write(service_content)
+                    
+                    # Enable and start the service
+                    subprocess.run(["systemctl", "daemon-reload"], check=True)
+                    subprocess.run(["systemctl", "enable", "pi-pvarr-mounts.service"], check=True)
+                    _installation_status.add_log("Mount wait service installed and enabled")
+                except Exception as e:
+                    _installation_status.add_log(f"WARNING: Could not create systemd service: {str(e)}")
+            else:
+                _installation_status.add_log("WARNING: systemd not detected, mount wait service not installed")
+                
+                # Create a cron job as alternative
+                crontab_cmd = f"@reboot /opt/pi-pvarr/bin/wait-for-mounts.sh >> /var/log/pi-pvarr/mount-check.log 2>&1"
+                try:
+                    # Get current crontab
+                    process = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+                    current_crontab = process.stdout if process.returncode == 0 else ""
+                    
+                    # Add our command if it's not already there
+                    if crontab_cmd not in current_crontab:
+                        new_crontab = current_crontab + "\n" + crontab_cmd + "\n"
+                        
+                        # Write to a temporary file
+                        with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp:
+                            temp.write(new_crontab)
+                            temp_name = temp.name
+                        
+                        # Install new crontab
+                        subprocess.run(["crontab", temp_name], check=True)
+                        os.unlink(temp_name)
+                        _installation_status.add_log("Mount wait script added to crontab")
+                except Exception as e:
+                    _installation_status.add_log(f"WARNING: Could not update crontab: {str(e)}")
         
         # Add any customizations for specific services here
         # For example, if Jellyfin is enabled and some specific configuration is needed

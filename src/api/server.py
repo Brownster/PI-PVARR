@@ -251,17 +251,57 @@ def create_app(test_config=None):
     @app.route('/api/storage/mount', methods=['POST'])
     def mount_drive():
         """
-        Mount a drive.
+        Mount a drive or network share.
         
         Returns:
             JSON: Status message.
         """
         data = request.json
+        
+        # Check for required parameters
+        if not data.get('device') or not data.get('mountpoint'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required parameters: device and mountpoint'
+            })
+        
+        # Get optional parameters with defaults
+        fstype = data.get('fstype', 'auto')
+        mount_options = data.get('mount_options')
+        add_to_fstab = data.get('add_to_fstab', False)
+        
+        # First validate the device
+        if data.get('validate', True):
+            validation_result = storage_manager.validate_device(data.get('device'), fstype)
+            if validation_result['status'] == 'error':
+                return jsonify(validation_result)
+        
+        # Mount the drive
         result = storage_manager.mount_drive(
             data.get('device'),
             data.get('mountpoint'),
-            data.get('fstype', 'auto')
+            fstype,
+            mount_options,
+            add_to_fstab
         )
+        
+        # If successful and verification requested, verify the mount
+        if result['status'] == 'success' and data.get('verify', False):
+            verify_result = storage_manager.verify_mount(
+                data.get('mountpoint'),
+                data.get('uid', 1000),
+                data.get('gid', 1000)
+            )
+            
+            # If verification failed, unmount and return error
+            if verify_result['status'] == 'error':
+                storage_manager.unmount_drive(data.get('mountpoint'))
+                return jsonify(verify_result)
+            
+            # If verification has warnings, include them in the result
+            if verify_result['status'] == 'warning':
+                result['warning'] = verify_result['message']
+        
         return jsonify(result)
     
     @app.route('/api/storage/unmount', methods=['POST'])

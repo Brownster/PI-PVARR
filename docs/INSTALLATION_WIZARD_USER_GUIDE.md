@@ -109,25 +109,51 @@ Before starting the Installation Wizard, make sure you have:
 
 ## Step 4: Storage Configuration
 
-**Purpose**: Configure storage drives and file sharing options.
+**Purpose**: Configure local, USB, and network storage for your media.
 
-1. **Available Drives** section shows detected storage devices:
-   - Review the list of available drives
-   - Click "Select" on the drive you want to use for media storage
+1. **Available Storage Options**:
 
-2. **Directory Configuration**:
+   - **Local Drives**: Shows detected internal storage devices
+     - Review the list of available drives
+     - Click "Select" on the drive you want to use for media storage
+
+   - **USB Drives**: Shows detected USB storage devices
+     - For removable storage that may not be always connected
+     - WARNING: USB drives may disconnect unexpectedly - not ideal for primary media storage
+
+   - **Network Shares**: Add network storage from other devices
+     - Click "Add Network Share" to configure NFS or CIFS/SMB mounts
+     - For NFS, enter server:/path (example: 192.168.1.100:/media)
+     - For SMB/CIFS, enter //server/share (example: //192.168.1.100/media)
+     - Enter credentials if required (username/password for SMB)
+     - Select "Critical for Media" if this storage is essential
+       - Note: Critical storage must validate successfully to continue installation
+       - Critical storage will be monitored during system boot
+       - Services will wait for critical mounts before starting
+
+2. **Storage Testing**:
+   - The wizard will validate and test each storage location
+   - Checks for proper mounting, permissions, and available space
+   - Storage with low space or permissions issues will show warnings
+
+3. **Directory Configuration**:
    - Confirm or adjust the media and downloads directories
    - These should typically be on your largest storage device
 
-3. **File Sharing** (Optional):
-   - Select a share method (Samba for Windows/Mac/Linux compatibility, NFS for Linux/Mac)
-   - Configure shares for your media
+4. **File Sharing** (Optional):
+   - Configure outgoing shares from your Pi-PVARR server:
+     - Samba (SMB): For Windows/Mac/Linux compatibility
+     - NFS: For Linux/Mac (faster but less compatible)
    - Set visibility options (public or authenticated access)
-   - Click "Add Another Share" if you want to create multiple shares
+   - Click "Add Another Share" to create multiple shares
 
-4. Click "Next" to save your storage configuration.
+5. Click "Next" to save your storage configuration.
 
-> **Important**: If you're using a removable drive, ensure it's properly mounted and has appropriate permissions.
+> **Important**: Network shares may require specific firewall settings on your network. NFS typically uses ports 111, 2049, and CIFS/SMB uses port 445.
+
+> **USB Drive Note**: If using USB drives, they will be configured to auto-mount on system boot. However, unexpected disconnection may cause service failures.
+
+> **Performance Tip**: For best performance, use local storage for downloads and frequently accessed media.
 
 ## Step 5: Service Selection
 
@@ -209,7 +235,15 @@ Once the installation is complete, you'll see the "Installation Complete" screen
    - Instructions for setting up each service
    - Recommendations for next steps
 
-3. Click "Go to Dashboard" to access your Pi-PVARR dashboard.
+3. **System Dashboard Features**:
+   - Real-time storage status monitoring
+   - Service health dashboard
+   - Boot-up notifications for critical mounts
+   - Start/stop controls for all services
+
+4. Click "Go to Dashboard" to access your Pi-PVARR dashboard.
+
+> **Boot-time Monitoring**: The Pi-PVARR dashboard automatically starts during boot-up and shows the status of critical mounts. If you experience mount failures during startup, you can monitor and troubleshoot directly from the dashboard.
 
 The dashboard gives you a complete overview of your media server system, with options to:
 - Monitor system resources
@@ -225,12 +259,14 @@ If you encounter issues during installation:
 
 1. **Check the Installation Log**:
    - The log will often indicate the specific problem
+   - Look for ERROR entries to identify critical issues
 
 2. **Common Issues**:
    - **Docker Issues**: Verify Docker is installed and running
    - **Network Issues**: Check your internet connection
    - **Storage Issues**: Ensure storage devices are properly mounted
    - **Permission Issues**: Verify PUID/PGID settings
+   - **Memory Issues**: Ensure you have enough RAM (2GB+ recommended)
 
 3. **Retry Installation**:
    - You can retry the installation by refreshing the page and starting again
@@ -243,6 +279,36 @@ If you encounter issues during installation:
    - Check the documentation at [Pi-PVARR Documentation](https://github.com/Pi-PVARR/docs)
    - Ask for help in the community forums
    - Check GitHub issues for known problems
+
+### Storage-Specific Troubleshooting
+
+1. **Network Share Issues**:
+   - **Connection Failures**: Verify the server address is correct and reachable (ping the server)
+   - **Permission Denied**: Check credentials and share permissions on the remote server
+   - **NFS Mount Fails**: Ensure the NFS server exports the share to your Pi's IP address
+   - **CIFS/SMB Issues**: Verify the share format is correct (//server/share) and credentials work
+
+2. **USB Drive Issues**:
+   - **Drive Not Detected**: Try unplugging and reconnecting the drive
+   - **Mount Failures**: Check the filesystem type (NTFS, exFAT, etc.) is supported
+   - **Permission Problems**: USB drives may need reformatting or permission changes
+   - **Disappearing Drives**: If a USB drive disappears, restart affected services with: 
+     ```
+     sudo systemctl restart docker
+     ```
+
+3. **Local Storage Issues**:
+   - **Out of Space**: Free up space or migrate to a larger drive
+   - **Slow Performance**: Check drive health with SMART tools
+   - **Invalid Mount Points**: Ensure paths exist and are writable
+   - **Permission Errors**: Check if the specified UID/GID has access to the mountpoint
+
+4. **Storage Recovery Options**:
+   - If critical storage is unavailable during installation, try these options:
+     - For network shares: Check network connectivity and server status
+     - For USB drives: Try a different USB port or connect directly to a powered USB hub
+     - For local drives: Try running `sudo mount -a` to remount all fstab entries
+     - If all else fails, designate a different storage location as your media storage
 
 ---
 

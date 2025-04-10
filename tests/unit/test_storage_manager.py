@@ -71,7 +71,8 @@ class TestStorageManager:
 
     def test_mount_drive(self):
         """Test mounting a drive."""
-        with patch('subprocess.run') as mock_run, \
+        with patch('src.core.storage_manager.validate_device', return_value={'status': 'success'}), \
+             patch('subprocess.run') as mock_run, \
              patch('os.makedirs') as mock_makedirs:
             
             mock_run.return_value.returncode = 0
@@ -84,11 +85,12 @@ class TestStorageManager:
 
     def test_mount_drive_with_error(self):
         """Test handling errors when mounting a drive."""
-        with patch('subprocess.run') as mock_run, \
+        with patch('src.core.storage_manager.validate_device', return_value={'status': 'success'}), \
+             patch('subprocess.run') as mock_run, \
              patch('os.makedirs'):
             
             mock_run.return_value.returncode = 1
-            mock_run.return_value.stderr = b'Mount error'
+            mock_run.return_value.stderr = 'Mount error'
             
             result = storage_manager.mount_drive('/dev/sda1', '/mnt/media', 'ext4')
             
@@ -359,3 +361,205 @@ class TestStorageManager:
             mock_chown.assert_called_once_with('/mnt/media', 1000, 1000)
             mock_chmod.assert_called_once_with('/mnt/media', 0o755)
             assert mock_create_dir.call_count == 5  # 5 standard media directories
+    
+    def test_validate_device_block_device(self):
+        """Test validating a block device."""
+        with patch('os.path.exists', return_value=True), \
+             patch('subprocess.run') as mock_run, \
+             patch('os.path.basename', return_value='sda1'), \
+             patch('os.path.exists', side_effect=lambda path: True):
+            
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = 'part\n'
+            
+            # Mock the open and read for removable path check
+            with patch('builtins.open', mock_open(read_data='0')):
+                result = storage_manager.validate_device('/dev/sda1', 'ext4')
+                
+                assert result['status'] == 'success'
+                assert mock_run.call_count >= 1
+
+    def test_validate_device_network_nfs(self):
+        """Test validating an NFS share."""
+        with patch('subprocess.run') as mock_run:
+            
+            # First call is ping, second is showmount (optional)
+            mock_run.side_effect = [
+                MagicMock(returncode=0),  # Ping success
+                MagicMock(returncode=0)   # Showmount success
+            ]
+            
+            result = storage_manager.validate_device('192.168.1.100:/share', 'nfs')
+            
+            assert result['status'] == 'success'
+            assert mock_run.call_count >= 1
+
+    def test_validate_device_network_cifs(self):
+        """Test validating a CIFS share."""
+        with patch('subprocess.run') as mock_run:
+            
+            mock_run.return_value.returncode = 0  # Ping success
+            
+            result = storage_manager.validate_device('//192.168.1.100/share', 'cifs')
+            
+            assert result['status'] == 'success'
+            assert mock_run.call_count == 1
+
+    def test_validate_device_invalid_format(self):
+        """Test validating a device with invalid format."""
+        # Test NFS with invalid format
+        result = storage_manager.validate_device('invalid_nfs_format', 'nfs')
+        assert result['status'] == 'error'
+        assert 'Invalid NFS share format' in result['message']
+        
+        # Test CIFS with invalid format
+        result = storage_manager.validate_device('invalid_cifs_format', 'cifs')
+        assert result['status'] == 'error'
+        assert 'Invalid CIFS share format' in result['message']
+
+    def test_verify_mount(self):
+        """Test verifying a mount point."""
+        with patch('os.path.ismount', return_value=True), \
+             patch('os.makedirs') as mock_makedirs, \
+             patch('os.chown') as mock_chown, \
+             patch('builtins.open', mock_open()), \
+             patch('os.unlink') as mock_unlink, \
+             patch('os.rmdir') as mock_rmdir, \
+             patch('psutil.disk_usage') as mock_disk_usage:
+            
+            mock_disk_usage.return_value.free = 20 * 1024 * 1024 * 1024  # 20GB free
+            
+            result = storage_manager.verify_mount('/mnt/media', 1000, 1000)
+            
+            assert result['status'] == 'success'
+            mock_makedirs.assert_called_once()
+            mock_chown.assert_called_once()
+            mock_unlink.assert_called_once()
+            mock_rmdir.assert_called_once()
+
+    def test_verify_mount_low_space(self):
+        """Test verifying a mount point with low space."""
+        with patch('os.path.ismount', return_value=True), \
+             patch('os.makedirs') as mock_makedirs, \
+             patch('os.chown') as mock_chown, \
+             patch('builtins.open', mock_open()), \
+             patch('os.unlink') as mock_unlink, \
+             patch('os.rmdir') as mock_rmdir, \
+             patch('psutil.disk_usage') as mock_disk_usage:
+            
+            mock_disk_usage.return_value.free = 5 * 1024 * 1024 * 1024  # 5GB free
+            
+            result = storage_manager.verify_mount('/mnt/media', 1000, 1000)
+            
+            assert result['status'] == 'warning'
+            assert 'Only 5.0 GB available' in result['message']
+
+    def test_verify_mount_not_mounted(self):
+        """Test verifying a non-mounted point."""
+        with patch('os.path.ismount', return_value=False):
+            result = storage_manager.verify_mount('/mnt/media', 1000, 1000)
+            
+            assert result['status'] == 'error'
+            assert 'not a mount point' in result['message']
+
+    def test_verify_mount_permission_error(self):
+        """Test verifying a mount point with permission error."""
+        with patch('os.path.ismount', return_value=True), \
+             patch('os.makedirs', side_effect=PermissionError("Permission denied")):
+            
+            result = storage_manager.verify_mount('/mnt/media', 1000, 1000)
+            
+            assert result['status'] == 'error'
+            assert 'Cannot write to mount point' in result['message']
+
+    def test_add_to_fstab(self):
+        """Test adding an entry to fstab."""
+        mock_blkid_output = 'abcdef12-3456-7890-abcd-1234567890ab\n'
+        mock_fstab_content = """
+# /etc/fstab
+UUID=12345 / ext4 defaults 0 1
+"""
+        fstab_mock = mock_open(read_data=mock_fstab_content)
+        
+        with patch('subprocess.run') as mock_run, \
+             patch('builtins.open', fstab_mock):
+            
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = mock_blkid_output
+            
+            result = storage_manager.add_to_fstab('/dev/sda1', '/mnt/media', 'ext4')
+            
+            assert result['status'] == 'success'
+            assert mock_run.call_count >= 1
+            # Check that write was called with the fstab line
+            assert any('Added by Pi-PVARR' in str(args) for args in fstab_mock().write.call_args_list)
+
+    def test_add_to_fstab_network(self):
+        """Test adding a network mount to fstab."""
+        mock_fstab_content = """
+# /etc/fstab
+UUID=12345 / ext4 defaults 0 1
+"""
+        fstab_mock = mock_open(read_data=mock_fstab_content)
+        
+        with patch('builtins.open', fstab_mock):
+            result = storage_manager.add_to_fstab('192.168.1.100:/share', '/mnt/share', 'nfs', 'rw,soft,intr')
+            
+            assert result['status'] == 'success'
+            # Should use direct path for network mounts, not UUID
+            assert '192.168.1.100:/share' in str(fstab_mock().write.call_args_list[-1])
+
+    def test_add_to_fstab_existing(self):
+        """Test adding an entry to fstab when it already exists."""
+        mock_fstab_content = """
+# /etc/fstab
+UUID=12345 / ext4 defaults 0 1
+/dev/sda1 /mnt/media ext4 defaults 0 2
+"""
+        fstab_mock = mock_open(read_data=mock_fstab_content)
+        
+        with patch('builtins.open', fstab_mock):
+            result = storage_manager.add_to_fstab('/dev/sda1', '/mnt/media', 'ext4')
+            
+            assert result['status'] == 'warning'
+            assert 'already exists' in result['message']
+
+    def test_mount_drive_network(self):
+        """Test mounting a network drive."""
+        with patch('src.core.storage_manager.validate_device', return_value={'status': 'success', 'message': 'Valid'}), \
+             patch('os.makedirs') as mock_makedirs, \
+             patch('subprocess.run') as mock_run:
+            
+            mock_run.return_value.returncode = 0
+            
+            result = storage_manager.mount_drive('192.168.1.100:/share', '/mnt/share', 'nfs')
+            
+            assert result['status'] == 'success'
+            mock_makedirs.assert_called_once()
+            # Should use appropriate options for NFS
+            assert '-t' in str(mock_run.call_args)
+            assert 'nfs' in str(mock_run.call_args)
+
+    def test_mount_drive_with_fstab(self):
+        """Test mounting a drive with fstab entry."""
+        with patch('src.core.storage_manager.validate_device', return_value={'status': 'success', 'message': 'Valid'}), \
+             patch('os.makedirs') as mock_makedirs, \
+             patch('subprocess.run') as mock_run, \
+             patch('src.core.storage_manager.add_to_fstab', return_value={'status': 'success', 'message': 'Added to fstab'}):
+            
+            mock_run.return_value.returncode = 0
+            
+            result = storage_manager.mount_drive('/dev/sda1', '/mnt/media', 'ext4', None, True)
+            
+            assert result['status'] == 'success'
+            assert 'Added to fstab' in result['message']
+
+    def test_mount_drive_validation_error(self):
+        """Test mounting a drive with validation error."""
+        with patch('src.core.storage_manager.validate_device', 
+                  return_value={'status': 'error', 'message': 'Invalid device'}):
+            
+            result = storage_manager.mount_drive('/dev/sda1', '/mnt/media', 'ext4')
+            
+            assert result['status'] == 'error'
+            assert 'Invalid device' in result['message']
