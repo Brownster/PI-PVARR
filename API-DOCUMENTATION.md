@@ -245,7 +245,7 @@ Restarts all containers.
 #### Get Drives
 
 ```
-GET /drives
+GET /storage/drives
 ```
 
 Returns information about connected drives.
@@ -258,12 +258,26 @@ Returns information about connected drives.
     {
       "device": "/dev/sda1",
       "size": "500G",
-      "type": "ext4"
+      "fstype": "ext4",
+      "mountpoint": "/mnt/media",
+      "used": "100GB",
+      "available": "400GB",
+      "percent": 20,
+      "is_usb": true,
+      "label": "External Drive", 
+      "model": "SanDisk"
     },
     {
       "device": "/dev/sdb1",
       "size": "1T",
-      "type": "ext4"
+      "fstype": "ext4",
+      "mountpoint": "/mnt/backup",
+      "used": "200GB",
+      "available": "800GB",
+      "percent": 20,
+      "is_usb": false,
+      "label": "Internal Drive",
+      "model": "WD"
     }
   ]
 }
@@ -872,14 +886,32 @@ const compatibility = await installApi.checkSystemCompatibility();
 
 The API client handles error reporting and provides a consistent interface for all API endpoints.
 
-## WebSocket API (Coming Soon)
+## WebSocket API
 
-A WebSocket API will be added in a future update to provide real-time updates without polling. This will enable:
+The WebSocket API provides real-time updates without polling. This enables:
 
 - Real-time resource usage monitoring
 - Instant service status updates
 - Live log streaming
 - Installation progress events
+
+### WebSocket Connection
+
+Connect to the WebSocket endpoint at:
+
+```
+ws://<host>:8080/ws
+```
+
+### Message Types
+
+The WebSocket API supports the following event types:
+
+- `installation_status`: Updates on installation progress
+- `installation_complete`: Notification when installation completes
+- `service_update`: Updates when service status changes
+- `system_update`: Real-time system resource updates
+- `logs`: Live log streaming
 
 ## API Versioning
 

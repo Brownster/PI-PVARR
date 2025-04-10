@@ -434,21 +434,305 @@ Updates all containers by pulling the latest images.
 }
 ```
 
-## Storage API (Planned)
+## Storage API
 
-The following endpoints are planned for a future update:
+### Get Drives
 
 ```
 GET /api/storage/drives
-GET /api/storage/directory?path={path}
-GET /api/storage/shares
 ```
 
-## Network API (Planned)
+Returns information about connected drives.
 
-The following endpoints are planned for a future update:
+#### Response Example
+
+```json
+{
+  "drives": [
+    {
+      "device": "/dev/sda1",
+      "size": "500G",
+      "fstype": "ext4",
+      "mountpoint": "/mnt/media",
+      "used": "100GB",
+      "available": "400GB",
+      "percent": 20,
+      "is_usb": true,
+      "label": "External Drive", 
+      "model": "SanDisk"
+    },
+    {
+      "device": "/dev/sdb1",
+      "size": "1T",
+      "fstype": "ext4",
+      "mountpoint": "/mnt/backup",
+      "used": "200GB",
+      "available": "800GB",
+      "percent": 20,
+      "is_usb": false,
+      "label": "Internal Drive",
+      "model": "WD"
+    }
+  ]
+}
+```
+
+### Get Media Paths
 
 ```
-GET /api/network
-GET /api/network/vpn
+GET /api/storage/media/paths
+```
+
+Returns information about configured media paths.
+
+#### Response Example
+
+```json
+{
+  "paths": {
+    "movies": {
+      "path": "/mnt/media/Movies",
+      "exists": true
+    },
+    "tv": {
+      "path": "/mnt/media/TV",
+      "exists": true
+    },
+    "music": {
+      "path": "/mnt/media/Music",
+      "exists": false
+    },
+    "downloads": {
+      "path": "/mnt/downloads",
+      "exists": true
+    },
+    "completed": {
+      "path": "/mnt/downloads/completed",
+      "exists": true
+    },
+    "incomplete": {
+      "path": "/mnt/downloads/incomplete",
+      "exists": true
+    }
+  }
+}
+```
+
+### Mount Drive
+
+```
+POST /api/storage/mount
+```
+
+Mounts a drive.
+
+#### Request Body
+
+```json
+{
+  "device": "/dev/sda1",
+  "mountpoint": "/mnt/media",
+  "fstype": "ext4",
+  "mount_options": "defaults",
+  "add_to_fstab": true,
+  "verify": true
+}
+```
+
+#### Response Example
+
+```json
+{
+  "status": "success",
+  "message": "Device /dev/sda1 mounted to /mnt/media"
+}
+```
+
+## Network API
+
+The following endpoints are available for network management:
+
+### Get Network Information
+
+```
+GET /api/network/info
+```
+
+Returns comprehensive network information including interface details and VPN status.
+
+#### Response Example
+
+```json
+{
+  "interfaces": {
+    "eth0": {
+      "mac": "00:11:22:33:44:55",
+      "up": true,
+      "type": "ethernet",
+      "addresses": [
+        {
+          "address": "192.168.1.100",
+          "netmask": "255.255.255.0",
+          "broadcast": "192.168.1.255"
+        }
+      ]
+    }
+  },
+  "vpn": {
+    "connected": true,
+    "provider": "gluetun",
+    "ip_address": "123.45.67.89",
+    "location": "Amsterdam, NL"
+  },
+  "tailscale": {
+    "installed": true,
+    "running": true,
+    "ip_address": "100.100.100.100",
+    "hostname": "raspberrypi"
+  }
+}
+```
+
+### Get Network Interfaces
+
+```
+GET /api/network/interfaces
+```
+
+Returns information about network interfaces.
+
+#### Response Example
+
+```json
+{
+  "interfaces": {
+    "eth0": {
+      "mac": "00:11:22:33:44:55",
+      "up": true,
+      "speed": 1000,
+      "mtu": 1500,
+      "type": "ethernet",
+      "addresses": [
+        {
+          "address": "192.168.1.100",
+          "netmask": "255.255.255.0",
+          "broadcast": "192.168.1.255"
+        }
+      ]
+    },
+    "wlan0": {
+      "mac": "AA:BB:CC:DD:EE:FF",
+      "up": true,
+      "speed": 100,
+      "mtu": 1500,
+      "type": "wireless",
+      "addresses": [
+        {
+          "address": "192.168.1.101",
+          "netmask": "255.255.255.0",
+          "broadcast": "192.168.1.255"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Get VPN Status
+
+```
+GET /api/network/vpn/status
+```
+
+Returns VPN connection status.
+
+#### Response Example
+
+```json
+{
+  "status": "success",
+  "vpn": {
+    "connected": true,
+    "provider": "gluetun",
+    "ip_address": "123.45.67.89",
+    "location": "Amsterdam, NL"
+  }
+}
+```
+
+### Configure VPN
+
+```
+POST /api/network/vpn/configure
+```
+
+Configures VPN settings.
+
+#### Request Body Example
+
+```json
+{
+  "enabled": true,
+  "provider": "private internet access",
+  "username": "user",
+  "password": "pass",
+  "region": "Netherlands"
+}
+```
+
+#### Response Example
+
+```json
+{
+  "status": "success",
+  "message": "VPN configuration updated for provider private internet access"
+}
+```
+
+### Get Tailscale Status
+
+```
+GET /api/network/tailscale/status
+```
+
+Returns Tailscale VPN status.
+
+#### Response Example
+
+```json
+{
+  "status": "success",
+  "tailscale": {
+    "installed": true,
+    "running": true,
+    "ip_address": "100.100.100.100",
+    "hostname": "raspberrypi"
+  }
+}
+```
+
+### Configure Tailscale
+
+```
+POST /api/network/tailscale/configure
+```
+
+Configures Tailscale VPN.
+
+#### Request Body Example
+
+```json
+{
+  "enabled": true,
+  "auth_key": "tskey-abcdef123456"
+}
+```
+
+#### Response Example
+
+```json
+{
+  "status": "success",
+  "message": "Tailscale configured and started"
+}
 ```

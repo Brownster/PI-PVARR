@@ -213,7 +213,15 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the list of available drives
      */
     async getAvailableDrives() {
-        return this.get('drives');
+        return this.get('storage/drives');
+    }
+    
+    /**
+     * Get media paths
+     * @returns {Promise<any>} - Promise resolving to the available media paths
+     */
+    async getMediaPaths() {
+        return this.get('storage/media/paths');
     }
     
     /**
@@ -224,16 +232,16 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the mount result
      */
     async mountDrive(drive, mountpoint, options = {}) {
-        return this.post('drives/mount', { drive, mountpoint, options });
+        return this.post('storage/mount', { device: drive, mountpoint, ...options });
     }
     
     /**
      * Unmount a drive
-     * @param {string} drive - The drive or mountpoint to unmount
+     * @param {string} mountpoint - The mountpoint to unmount
      * @returns {Promise<any>} - Promise resolving to the unmount result
      */
-    async unmountDrive(drive) {
-        return this.post('drives/unmount', { drive });
+    async unmountDrive(mountpoint) {
+        return this.post('storage/unmount', { mountpoint });
     }
     
     /**
@@ -244,7 +252,7 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the format result
      */
     async formatDrive(drive, filesystem, label) {
-        return this.post('drives/format', { drive, filesystem, label });
+        return this.post('storage/format', { device: drive, fstype: filesystem, label });
     }
     
     /**
@@ -252,7 +260,7 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the list of network shares
      */
     async getNetworkShares() {
-        return this.get('network/shares');
+        return this.get('storage/shares');
     }
     
     /**
@@ -261,7 +269,7 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the add result
      */
     async addNetworkShare(shareConfig) {
-        return this.post('network/shares', shareConfig);
+        return this.post('storage/shares/add', shareConfig);
     }
     
     /**
@@ -270,7 +278,7 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the remove result
      */
     async removeNetworkShare(id) {
-        return this.post('network/shares', { id }, 'DELETE');
+        return this.post('storage/shares/remove', { name: id });
     }
     
     /**
@@ -278,7 +286,7 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the media paths
      */
     async getMediaPaths() {
-        return this.get('paths');
+        return this.get('storage/media/paths');
     }
     
     /**
@@ -287,7 +295,7 @@ class ApiClient {
      * @returns {Promise<any>} - Promise resolving to the update result
      */
     async updateMediaPaths(paths) {
-        return this.post('paths', { paths }, 'PUT');
+        return this.post('storage/media/paths', { paths }, 'PUT');
     }
 }
 
