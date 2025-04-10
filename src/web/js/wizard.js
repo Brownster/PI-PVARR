@@ -140,9 +140,11 @@ class DriveManager {
     try {
       const drivesData = await storageApi.getDrives();
       this.drives = drivesData.drives || [];
+      console.log("Loaded drives:", this.drives);
       this.renderDrives();
       return this.drives;
     } catch (error) {
+      console.error("Error loading drives:", error);
       this.dispatchEvent('error', {
         message: 'Failed to load drives',
         error: error
@@ -270,7 +272,7 @@ class DriveManager {
                   <i class="fas fa-eject"></i> Unmount
                 </button>
               ` : `
-                <button class="btn btn-primary btn-sm mount-drive" data-drive-path="${drive.path}">
+                <button class="btn btn-primary btn-sm mount-drive" data-device="${drive.device}" data-drive-path="${drive.path}">
                   <i class="fas fa-hdd"></i> Mount
                 </button>
               `}
@@ -302,9 +304,18 @@ class DriveManager {
     this.drivesContainer.querySelectorAll('.mount-drive').forEach(button => {
       button.addEventListener('click', async () => {
         const devicePath = button.getAttribute('data-device');
+        const drivePath = button.getAttribute('data-drive-path');
         const drive = this.drives.find(d => d.device === devicePath);
-        if (!drive) return;
-        alert(`Mount functionality will be implemented in a future update`);
+        
+        if (!drive) {
+          console.error(`Drive not found: ${devicePath}`);
+          return;
+        }
+        
+        console.log(`Mounting drive: ${devicePath}, path: ${drivePath}`);
+        
+        // For now, just show an alert - in production this would call the mount API
+        alert(`Mounting drive ${devicePath}. This functionality will be fully implemented in a future update.`);
       });
     });
     

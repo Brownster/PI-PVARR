@@ -3,6 +3,409 @@
  * Handles all functionality for the step-by-step installation wizard
  */
 
+// DriveManager class for handling storage-related operations
+class DriveManager {
+    constructor() {
+        this.drives = [];
+        this.networkShares = [];
+        this.mediaPaths = {};
+        this.eventHandlers = new Map();
+        this.drivesContainer = null;
+        this.networkSharesContainer = null;
+        this.mediaPathsContainer = null;
+    }
+    
+    async initialize(drivesContainer, networkSharesContainer, mediaPathsContainer) {
+        console.log('DriveManager.initialize() called');
+        this.drivesContainer = drivesContainer;
+        this.networkSharesContainer = networkSharesContainer;
+        this.mediaPathsContainer = mediaPathsContainer;
+        
+        try {
+            // Fetch available drives
+            await this.loadDrives();
+            
+            // Fetch network shares
+            await this.loadNetworkShares();
+            
+            // Fetch media paths
+            await this.loadMediaPaths();
+            
+            console.log('DriveManager initialized successfully');
+        } catch (error) {
+            console.error('Error initializing DriveManager:', error);
+            this.dispatchEvent('error', { 
+                message: 'Failed to initialize drive manager', 
+                error 
+            });
+            throw error;
+        }
+    }
+    
+    async loadDrives() {
+        try {
+            console.log('Fetching drives from API...');
+            const response = await fetch('/api/storage/drives');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch drives: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('Received drives data:', data);
+            
+            if (!data.drives && Array.isArray(data)) {
+                // Handle case where API returns array directly (legacy format)
+                console.warn('API returned array format instead of {drives: [...]}');
+                this.drives = data;
+            } else {
+                // Normal case where API returns {drives: [...]}
+                this.drives = data.drives || [];
+            }
+            
+            console.log('Processed drives data:', this.drives);
+            this.renderDrives();
+            return this.drives;
+        } catch (error) {
+            console.error('Error loading drives:', error);
+            this.dispatchEvent('error', {
+                message: 'Failed to load drives',
+                error
+            });
+            throw error;
+        }
+    }
+    
+    async loadNetworkShares() {
+        try {
+            const response = await fetch('/api/storage/shares');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch network shares: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            this.networkShares = data.shares || [];
+            this.renderNetworkShares();
+            return this.networkShares;
+        } catch (error) {
+            console.error('Error loading network shares:', error);
+            this.dispatchEvent('error', {
+                message: 'Failed to load network shares',
+                error
+            });
+            throw error;
+        }
+    }
+    
+    async loadMediaPaths() {
+        try {
+            const response = await fetch('/api/storage/media/paths');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch media paths: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            this.mediaPaths = data.paths || {};
+            this.renderMediaPaths();
+            return this.mediaPaths;
+        } catch (error) {
+            console.error('Error loading media paths:', error);
+            this.dispatchEvent('error', {
+                message: 'Failed to load media paths',
+                error
+            });
+            throw error;
+        }
+    }
+    
+    renderDrives() {
+        if (!this.drivesContainer) {
+            console.error('Drives container is not set');
+            return;
+        }
+        
+        console.log('Rendering drives:', this.drives);
+        
+        let html = '<div class="drives-list">';
+        
+        if (this.drives.length === 0) {
+            html += `
+                <div class="no-drives-message">
+                    <i class="fas fa-hdd"></i>
+                    <p>No storage drives detected</p>
+                    <p class="hint">Connect a USB drive or add a network share to continue</p>
+                </div>
+            `;
+        } else {
+            // Sort drives - USB drives first, then by size
+            const sortedDrives = [...this.drives].sort((a, b) => {
+                // USB drives first
+                if (a.is_usb && !b.is_usb) return -1;
+                if (!a.is_usb && b.is_usb) return 1;
+                
+                // Then by size (larger first)
+                const sizeA = typeof a.size === 'string' ? parseInt(a.size) : a.size;
+                const sizeB = typeof b.size === 'string' ? parseInt(b.size) : b.size;
+                return sizeB - sizeA;
+            });
+            
+            sortedDrives.forEach(drive => {
+                // Get drive size information
+                let size = drive.size;
+                let used = 'Unknown';
+                let available = 'Unknown';
+                let usedPercent = 0;
+                
+                if (typeof size === 'string') {
+                    // Handle size strings like "8G" or "1T"
+                    size = size.replace(/([0-9.]+)([GT])B?/, (match, num, unit) => {
+                        return parseFloat(num) * (unit === 'T' ? 1024 : 1) + ' GB';
+                    });
+                } else if (typeof size === 'number') {
+                    // Handle size in bytes
+                    const sizeGB = (size / (1024 * 1024 * 1024)).toFixed(1);
+                    size = `${sizeGB} GB`;
+                } else {
+                    size = 'Unknown';
+                }
+                
+                // If we have usage information
+                if (drive.used && drive.available) {
+                    used = drive.used;
+                    available = drive.available;
+                    usedPercent = drive.percent || 0;
+                }
+                
+                // Create a nicer display name
+                const displayName = drive.label || drive.model || (drive.is_usb ? `USB Drive (${drive.device})` : drive.device);
+                
+                // Add USB icon if it's a USB drive
+                const driveIcon = drive.is_usb ? 
+                    '<i class="fas fa-usb device-icon usb-icon"></i>' : 
+                    '<i class="fas fa-hdd device-icon"></i>';
+                
+                html += `
+                    <div class="drive-item ${drive.is_usb ? 'usb-drive' : ''}" data-device="${drive.device}">
+                        <div class="drive-info">
+                            ${driveIcon}
+                            <div class="drive-name-container">
+                                <div class="drive-name">${displayName}</div>
+                                <div class="drive-details">
+                                    <span class="drive-size">${size}</span>
+                                    <span class="drive-type">${drive.fstype || 'Unknown'}</span>
+                                    <span class="drive-mount">${drive.mountpoint || 'Not mounted'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="drive-usage">
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: ${usedPercent}%;">
+                                    <span class="progress-text">${usedPercent}%</span>
+                                </div>
+                            </div>
+                            <div class="usage-text">
+                                ${used !== 'Unknown' ? `${used} free of ${size}` : size}
+                            </div>
+                        </div>
+                        <div class="drive-actions">
+                            ${drive.mountpoint ? `
+                                <button class="btn btn-primary btn-sm select-drive" data-device="${drive.device}" data-mountpoint="${drive.mountpoint}">
+                                    <i class="fas fa-check"></i> Select
+                                </button>
+                                <button class="btn btn-danger btn-sm unmount-drive" data-device="${drive.device}" data-mountpoint="${drive.mountpoint}">
+                                    <i class="fas fa-eject"></i> Unmount
+                                </button>
+                            ` : `
+                                <button class="btn btn-primary btn-sm mount-drive" data-device="${drive.device}" data-drive-path="${drive.path || drive.device}">
+                                    <i class="fas fa-hdd"></i> Mount
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += '</div>';
+        this.drivesContainer.innerHTML = html;
+        
+        // Add event listeners
+        this.drivesContainer.querySelectorAll('.select-drive').forEach(button => {
+            button.addEventListener('click', () => {
+                const devicePath = button.getAttribute('data-device');
+                const mountpoint = button.getAttribute('data-mountpoint');
+                const drive = this.drives.find(d => d.device === devicePath);
+                
+                if (drive && mountpoint) {
+                    this.dispatchEvent('driveSelected', {
+                        drive,
+                        mountpoint
+                    });
+                }
+            });
+        });
+        
+        this.drivesContainer.querySelectorAll('.mount-drive').forEach(button => {
+            button.addEventListener('click', () => {
+                const devicePath = button.getAttribute('data-device');
+                const drivePath = button.getAttribute('data-drive-path');
+                const drive = this.drives.find(d => d.device === devicePath);
+                
+                if (!drive) {
+                    console.error(`Drive not found: ${devicePath}`);
+                    return;
+                }
+                
+                console.log(`Mount button clicked for drive: ${devicePath}`);
+                alert(`Mounting drive ${devicePath}. This functionality will be implemented in a future update.`);
+            });
+        });
+        
+        this.drivesContainer.querySelectorAll('.unmount-drive').forEach(button => {
+            button.addEventListener('click', () => {
+                const devicePath = button.getAttribute('data-device');
+                const mountpoint = button.getAttribute('data-mountpoint');
+                const drive = this.drives.find(d => d.device === devicePath);
+                
+                if (!drive || !mountpoint) return;
+                
+                console.log(`Unmount button clicked for drive: ${devicePath}, mountpoint: ${mountpoint}`);
+                alert(`Unmounting drive ${devicePath}. This functionality will be implemented in a future update.`);
+            });
+        });
+    }
+    
+    renderNetworkShares() {
+        if (!this.networkSharesContainer) return;
+        
+        let html = '<div class="network-shares-list">';
+        
+        if (this.networkShares.length === 0) {
+            html += `
+                <div class="no-shares-message">
+                    <i class="fas fa-network-wired"></i>
+                    <p>No network shares configured</p>
+                    <p class="hint">Add a network share using the button below</p>
+                </div>
+            `;
+        } else {
+            this.networkShares.forEach(share => {
+                html += `
+                    <div class="share-item" data-share-id="${share.id}">
+                        <div class="share-info">
+                            <div class="share-name">${share.name}</div>
+                            <div class="share-details">
+                                <span class="share-type">${share.type}</span>
+                                <span class="share-server">${share.server}</span>
+                                <span class="share-path">${share.share_name}</span>
+                                <span class="share-mount">${share.mountpoint || 'Not mounted'}</span>
+                            </div>
+                        </div>
+                        <div class="share-actions">
+                            ${share.mountpoint ? `
+                                <button class="btn btn-primary btn-sm select-share" data-share-id="${share.id}">
+                                    <i class="fas fa-check"></i> Select
+                                </button>
+                                <button class="btn btn-danger btn-sm unmount-share" data-share-id="${share.id}">
+                                    <i class="fas fa-eject"></i> Unmount
+                                </button>
+                            ` : `
+                                <button class="btn btn-primary btn-sm mount-share" data-share-id="${share.id}">
+                                    <i class="fas fa-network-wired"></i> Mount
+                                </button>
+                            `}
+                            <button class="btn btn-danger btn-sm remove-share" data-share-id="${share.id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += `
+            <div class="button-row">
+                <button class="btn btn-primary" id="add-network-share">
+                    <i class="fas fa-plus"></i> Add Network Share
+                </button>
+            </div>
+        `;
+        
+        html += '</div>';
+        this.networkSharesContainer.innerHTML = html;
+    }
+    
+    renderMediaPaths() {
+        if (!this.mediaPathsContainer) return;
+        
+        console.log('Rendering media paths:', this.mediaPaths);
+        
+        let html = '<div class="media-paths">';
+        
+        if (!this.mediaPaths || Object.keys(this.mediaPaths).length === 0) {
+            html += `
+                <div class="no-paths-message">
+                    <i class="fas fa-folder"></i>
+                    <p>No media paths configured</p>
+                    <p class="hint">Configure your storage first by selecting a drive or adding a network share</p>
+                </div>
+            `;
+        } else {
+            html += '<ul class="paths-list">';
+            
+            for (const [key, pathObj] of Object.entries(this.mediaPaths)) {
+                // Handle the media path object structure
+                // The API returns {path: "/path/to/dir", exists: true/false}
+                let path = '';
+                let exists = false;
+                
+                if (typeof pathObj === 'object' && pathObj !== null) {
+                    path = pathObj.path || '';
+                    exists = pathObj.exists || false;
+                } else if (typeof pathObj === 'string') {
+                    path = pathObj;
+                    exists = false;
+                } else {
+                    console.warn(`Invalid media path data for ${key}:`, pathObj);
+                    path = '[Invalid path data]';
+                    exists = false;
+                }
+                
+                html += `
+                    <li class="${exists ? 'path-exists' : 'path-missing'}">
+                        <div class="path-type">${key}</div>
+                        <div class="path-value">${path}</div>
+                        ${exists ? 
+                            '<div class="path-status"><i class="fas fa-check-circle"></i> Directory exists</div>' : 
+                            '<div class="path-status"><i class="fas fa-exclamation-circle"></i> Will be created</div>'}
+                    </li>
+                `;
+            }
+            
+            html += '</ul>';
+        }
+        
+        html += '</div>';
+        this.mediaPathsContainer.innerHTML = html;
+    }
+    
+    addEventListener(event, handler) {
+        if (!this.eventHandlers.has(event)) {
+            this.eventHandlers.set(event, []);
+        }
+        
+        this.eventHandlers.get(event).push(handler);
+    }
+    
+    dispatchEvent(event, data) {
+        if (this.eventHandlers.has(event)) {
+            this.eventHandlers.get(event).forEach(handler => handler(data));
+        }
+    }
+}
+
+// Create a DriveManager instance
+const driveManager = new DriveManager();
+
 document.addEventListener('DOMContentLoaded', () => {
     // State management
     const state = {
@@ -576,6 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Initialize the DriveManager for storage configuration
      */
     async function initializeDriveManager() {
+        console.log('Initializing DriveManager...');
         elements.drivesLoading.classList.remove('hidden');
         elements.drivesContainer.classList.add('hidden');
         
@@ -585,8 +989,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const networkSharesContainer = document.getElementById('network-shares-container');
             const mediaPathsContainer = document.getElementById('media-paths-container');
             
+            console.log('Container elements:', {
+                drivesContainer,
+                networkSharesContainer,
+                mediaPathsContainer
+            });
+            
             // Initialize the DriveManager with the containers
+            console.log('Calling driveManager.initialize()...');
             await driveManager.initialize(drivesContainer, networkSharesContainer, mediaPathsContainer);
+            console.log('DriveManager initialized with drives:', driveManager.drives);
             
             // Set up event listeners for DriveManager events
             driveManager.addEventListener('driveSelected', handleDriveSelected);
@@ -601,8 +1013,18 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Store drive data in state
             state.availableDrives = driveManager.drives;
+            console.log('Stored drives in state:', state.availableDrives);
             
+            // Display notification with drive count
+            if (driveManager.drives.length > 0) {
+                showNotification(
+                    'Drives Detected', 
+                    `Found ${driveManager.drives.length} storage drives (${driveManager.drives.filter(d => d.is_usb).length} USB)`,
+                    'info'
+                );
+            }
         } catch (error) {
+            console.error('Error initializing drive manager:', error);
             displayError('Error initializing drive manager', error);
         } finally {
             elements.drivesLoading.classList.add('hidden');

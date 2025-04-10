@@ -145,7 +145,6 @@ export const containerApi = {
 
 /**
  * Storage API methods
- * Note: These endpoints will be implemented in a future update
  */
 export const storageApi = {
   /**
@@ -165,7 +164,13 @@ export const storageApi = {
    * Get shares information
    * @returns {Promise<Object>} Shares information
    */
-  getShares: () => apiRequest('/storage/shares')
+  getShares: () => apiRequest('/storage/shares'),
+  
+  /**
+   * Get media paths
+   * @returns {Promise<Object>} Media paths information
+   */
+  getMediaPaths: () => apiRequest('/storage/media/paths')
 };
 
 /**

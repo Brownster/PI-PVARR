@@ -76,8 +76,9 @@ class TestDashboardFlow:
             response = client.get('/api/storage/drives')
             assert response.status_code == 200
             drives_data = json.loads(response.data)
-            assert len(drives_data) == 2
-            assert drives_data[0]["device"] == "/dev/sda1"
+            assert "drives" in drives_data
+            assert len(drives_data["drives"]) == 2
+            assert drives_data["drives"][0]["device"] == "/dev/sda1"
             
             # Step 4: Get network information
             response = client.get('/api/network/info')

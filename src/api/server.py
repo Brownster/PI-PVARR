@@ -236,7 +236,13 @@ def create_app(test_config=None):
         Returns:
             JSON: Drive information.
         """
-        return jsonify(storage_manager.get_drives_info())
+        try:
+            drives = storage_manager.get_drives_info()
+            app.logger.info(f"Retrieved drives: {drives}")
+            return jsonify({"drives": drives})
+        except Exception as e:
+            app.logger.error(f"Error getting drives: {str(e)}")
+            return jsonify({"drives": [], "error": str(e)})
     
     @app.route('/api/storage/mounts', methods=['GET'])
     def get_mounts():

@@ -465,26 +465,75 @@ Returns information about all drives.
 **Response Example:**
 
 ```json
-[
-  {
-    "device": "/dev/sda1",
-    "mountpoint": "/mnt/media",
-    "size": "2000G",
-    "used": "500.0 GB",
-    "available": "1.5 TB",
-    "percent": 25,
-    "fstype": "ext4"
-  },
-  {
-    "device": "/dev/sdb1",
-    "mountpoint": "/mnt/downloads",
-    "size": "1000G",
-    "used": "300.0 GB",
-    "available": "700.0 GB",
-    "percent": 30,
-    "fstype": "ext4"
+{
+  "drives": [
+    {
+      "device": "/dev/sda1",
+      "mountpoint": "/mnt/media",
+      "size": "2000G",
+      "used": "500.0 GB",
+      "available": "1.5 TB",
+      "percent": 25,
+      "fstype": "ext4",
+      "is_usb": true,
+      "label": "External Drive",
+      "model": "SanDisk"
+    },
+    {
+      "device": "/dev/sdb1",
+      "mountpoint": "/mnt/downloads",
+      "size": "1000G",
+      "used": "300.0 GB",
+      "available": "700.0 GB",
+      "percent": 30,
+      "fstype": "ext4",
+      "is_usb": false,
+      "label": "Internal Drive",
+      "model": "WD"
+    }
+  ]
+}
+```
+
+#### Get Media Paths
+
+```
+GET /storage/media/paths
+```
+
+Returns information about configured media paths.
+
+**Response Example:**
+
+```json
+{
+  "paths": {
+    "movies": {
+      "path": "/mnt/media/Movies",
+      "exists": true
+    },
+    "tv": {
+      "path": "/mnt/media/TV",
+      "exists": true
+    },
+    "music": {
+      "path": "/mnt/media/Music",
+      "exists": false
+    },
+    "downloads": {
+      "path": "/mnt/downloads",
+      "exists": true
+    },
+    "completed": {
+      "path": "/mnt/downloads/completed",
+      "exists": true
+    },
+    "incomplete": {
+      "path": "/mnt/downloads/incomplete",
+      "exists": true
+    }
   }
-]
+}
 ```
 
 #### Get Mount Points
