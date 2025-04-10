@@ -447,7 +447,8 @@ class TestServiceManager:
     
     def test_start_services_error(self):
         """Test start_services function with execution error."""
-        docker_compose_file = "/home/user/.config/pi-pvarr/docker-compose/docker-compose.yml"
+        # Unused but kept for context
+        # docker_compose_file = "/home/user/.config/pi-pvarr/docker-compose/docker-compose.yml"
         
         with patch('os.path.exists', return_value=True), \
              patch('src.core.config.get_config_dir', return_value="/home/user/.config/pi-pvarr"), \

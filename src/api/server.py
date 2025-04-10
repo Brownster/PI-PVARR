@@ -9,11 +9,9 @@ This module provides a RESTful API server for the Pi-PVARR application:
 """
 
 import os
-import json
 import datetime
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
-from typing import Dict, Any
 
 from src.core import system_info, config, docker_manager, storage_manager, network_manager, service_manager, install_wizard
 
@@ -713,7 +711,7 @@ def create_app(test_config=None):
         Serve the main page.
         
         Returns:
-            HTML: The main page.
+            HTML: The main page or redirects to installation wizard if needed.
         """
         try:
             # Use the absolute path from the app config
@@ -729,6 +727,14 @@ def create_app(test_config=None):
                     "index_exists": os.path.exists(os.path.join(web_dir, 'index.html'))
                 })
             
+            # Check if installation is required
+            install_status = install_wizard.get_installation_status()
+            app.logger.info(f"Installation status: {install_status.get('status', 'unknown')}")
+            
+            # Redirect to installation wizard if not completed
+            if install_status.get('status') in ['not_started', 'in_progress', 'failed']:
+                return redirect('/install')
+            
             response = send_from_directory(web_dir, 'index.html')
             app.logger.info(f"Response headers: {dict(response.headers)}")
             return response
@@ -736,6 +742,30 @@ def create_app(test_config=None):
             app.logger.error(f"Error serving index.html: {str(e)}")
             return jsonify({"error": str(e), "web_dir": app.config.get('WEB_DIR', 'Not set')}), 500
     
+    @app.route('/install', methods=['GET'])
+    def install_wizard_page():
+        """
+        Serve the installation wizard page.
+        
+        Returns:
+            HTML: The installation wizard page.
+        """
+        try:
+            web_dir = app.config['WEB_DIR']
+            app.logger.info(f"Serving install.html from {web_dir}")
+            
+            install_html_path = os.path.join(web_dir, 'install.html')
+            if os.path.exists(install_html_path):
+                response = send_from_directory(web_dir, 'install.html')
+                app.logger.info(f"Response headers: {dict(response.headers)}")
+                return response
+            else:
+                app.logger.error(f"install.html not found at {install_html_path}")
+                return jsonify({"error": "Installation page not found"}), 404
+        except Exception as e:
+            app.logger.error(f"Error serving install.html: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+            
     @app.route('/favicon.ico')
     def favicon():
         """Handle browser requests for favicon."""

@@ -8,11 +8,9 @@ This module provides functions to manage services:
 """
 
 import os
-import json
-import platform
 import subprocess
 import tempfile
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any
 
 from src.core import config, docker_manager
 
@@ -207,7 +205,7 @@ def get_service_compatibility() -> Dict[str, Any]:
     """
     # Get system information to check compatibility
     try:
-        import psutil
+        # psutil not directly used here
         from src.core import system_info
         
         # Get system information
@@ -220,7 +218,8 @@ def get_service_compatibility() -> Dict[str, Any]:
         architecture = sys_info.get("architecture", "")
         is_arm = "arm" in architecture.lower()
         is_arm64 = "aarch64" in architecture.lower() or "arm64" in architecture.lower()
-        is_x86 = "x86" in architecture.lower()
+        # is_x86 unused but may be needed in future
+        # is_x86 = "x86" in architecture.lower()
         is_x86_64 = "x86_64" in architecture.lower() or "amd64" in architecture.lower()
         
         # Check for Raspberry Pi specific information

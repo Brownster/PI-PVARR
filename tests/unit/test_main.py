@@ -15,7 +15,8 @@ class TestMain:
     @pytest.mark.skip(reason="Skipping due to Flask app initialization issues in tests")
     def test_main_api_command(self):
         """Test main function with 'api' command."""
-        test_args = ["program", "api", "--host", "127.0.0.1", "--port", "8081", "--debug"]
+        # Command-line arguments for reference (not used directly)
+        # ["program", "api", "--host", "127.0.0.1", "--port", "8081", "--debug"]
         
         # We need to patch argparse to prevent issues with sys.argv
         mock_args = MagicMock()

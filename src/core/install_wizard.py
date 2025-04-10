@@ -10,12 +10,11 @@ This module provides a step-by-step installation wizard for setting up the Pi-PV
 """
 
 import os
-import json
 import time
 import logging
 import subprocess
 import platform
-from typing import Dict, Any, List, Optional, Tuple, Union
+from typing import Dict, Any, List
 
 from src.core import config, docker_manager, storage_manager, network_manager, service_manager, system_info
 
@@ -598,7 +597,7 @@ def install_dependencies() -> Dict[str, Any]:
             _installation_status.add_log(f"Running: {' '.join(cmd)}")
             
             try:
-                result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+                subprocess.run(cmd, check=True, capture_output=True, text=True)
                 _installation_status.add_log(f"{description} successful")
                 return True
             except subprocess.SubprocessError as e:
@@ -977,7 +976,8 @@ def perform_post_installation() -> Dict[str, Any]:
     try:
         # Get services configuration
         _installation_status.update_progress("post_install", 30)
-        services_config = config.get_services_config()
+        # Note: services_config not used in this function yet, but keeping for future use
+        config.get_services_config()
         
         # Get system configuration
         system_config = config.get_config()
@@ -1028,8 +1028,8 @@ def finalize_installation() -> Dict[str, Any]:
             "stopped": sum(1 for _, info in containers.items() if info.get("status") == "stopped")
         }
         
-        # Get service information
-        service_info = service_manager.get_service_info()
+        # Get service information (for future, currently unused)
+        service_manager.get_service_info()
         
         # Create container URL list for easy access
         container_urls = {}

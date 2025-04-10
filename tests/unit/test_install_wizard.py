@@ -722,7 +722,8 @@ class TestInstallWizardFunctions:
         install_wizard._installation_status.status = "in_progress"
         install_wizard._installation_status.add_error("Configuration error")
         
-        result = install_wizard.run_installation(installation_config)
+        # Result not used in assertions
+        install_wizard.run_installation(installation_config)
         
         # Verify only that the function does not raise an exception
         # The actual behavior depends on the implementation

@@ -264,16 +264,17 @@ class TestStorageManager:
         read only = no
         """
         
-        expected_content = """
-        [global]
-        workgroup = WORKGROUP
-        server string = Samba Server
-        
-        [TVShows]
-        path = /mnt/media/TVShows
-        valid users = user1, user2
-        read only = no
-        """
+        # Variable left for future validation use
+        # expected_content = """
+        # [global]
+        # workgroup = WORKGROUP
+        # server string = Samba Server
+        # 
+        # [TVShows]
+        # path = /mnt/media/TVShows
+        # valid users = user1, user2
+        # read only = no
+        # """
         
         mo = mock_open(read_data=mock_smb_content)
         with patch('os.path.exists', return_value=True), \
