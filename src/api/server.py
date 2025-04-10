@@ -329,6 +329,47 @@ def create_app(test_config=None):
             return jsonify({"status": "error", "message": "Path parameter is required"})
         return jsonify(storage_manager.get_directory_info(path))
     
+    @app.route('/api/storage/media/paths', methods=['GET'])
+    def get_media_paths():
+        """
+        Get information about configured media paths.
+        
+        Returns:
+            JSON: Media paths information.
+        """
+        paths = {}
+        
+        try:
+            # Return media paths from config
+            current_config = config.get_config()
+            
+            # Get the main media directory
+            media_dir = current_config.get('media_dir', '/mnt/media')
+            downloads_dir = current_config.get('downloads_dir', '/mnt/downloads')
+            
+            # Create default media paths if none are configured
+            paths = {
+                'movies': os.path.join(media_dir, 'Movies'),
+                'tv': os.path.join(media_dir, 'TV'),
+                'music': os.path.join(media_dir, 'Music'),
+                'downloads': downloads_dir,
+                'completed': os.path.join(downloads_dir, 'completed'),
+                'incomplete': os.path.join(downloads_dir, 'incomplete')
+            }
+            
+            # Check if the directories exist
+            for key, path in paths.items():
+                paths[key] = {
+                    'path': path,
+                    'exists': os.path.exists(path) and os.path.isdir(path)
+                }
+                
+            app.logger.info(f"Media paths: {paths}")
+        except Exception as e:
+            app.logger.error(f"Error getting media paths: {str(e)}")
+        
+        return jsonify({"paths": paths})
+    
     @app.route('/api/storage/directories', methods=['POST'])
     def get_directories_info():
         """

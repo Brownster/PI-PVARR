@@ -33,23 +33,57 @@ def get_drives_info() -> List[Dict[str, Any]]:
     drives = []
     
     try:
-        # Run lsblk command to get block device information in JSON format
+        # Log at the beginning for debugging
+        print("Starting drive detection...")
+        
+        # Run lsblk command to get block device information with more details
         result = subprocess.run(
-            ['lsblk', '-o', 'NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT', '-J'],
+            ['lsblk', '-o', 'NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,MODEL,SERIAL,LABEL,UUID,PARTUUID,PARTLABEL,TRAN', '-J'],
             capture_output=True,
             text=True,
-            check=True
+            check=False  # Don't fail if some columns aren't supported
         )
+        
+        if result.returncode != 0:
+            # Fall back to basic columns if the extended set fails
+            print("Extended column set failed, using basic columns")
+            result = subprocess.run(
+                ['lsblk', '-o', 'NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT', '-J'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        
+        # Print the raw output for debugging
+        print(f"lsblk output: {result.stdout}")
         
         # Parse JSON output
         data = json.loads(result.stdout)
         
+        # Get USB devices
+        usb_devices = get_usb_devices()
+        print(f"USB devices detected: {usb_devices}")
+
         # Process each device
         for device in data.get('blockdevices', []):
+            print(f"Processing device: {device.get('name')}")
+            is_usb = False
+            
+            # Check if this is a USB device based on the transport type or device path
+            if device.get('tran') == 'usb' or f"/dev/{device.get('name')}" in usb_devices:
+                is_usb = True
+                print(f"Detected USB device: {device.get('name')}")
+                
             if device.get('type') == 'disk':
-                # Process each partition
-                for partition in device.get('children', []):
-                    if partition.get('type') == 'part' and partition.get('fstype') and partition.get('fstype') != 'swap':
+                # Process each partition or the disk itself if it has no partitions
+                partitions = device.get('children', [])
+                
+                # If disk has no partitions but has a filesystem, treat the disk itself as a partition
+                if not partitions and device.get('fstype') and device.get('fstype') != 'swap':
+                    partitions = [device]
+                
+                for partition in partitions:
+                    if partition.get('type') in ['part', 'disk'] and partition.get('fstype') and partition.get('fstype') != 'swap':
                         device_path = f"/dev/{partition['name']}"
                         
                         # Get mount point
@@ -61,38 +95,180 @@ def get_drives_info() -> List[Dict[str, Any]]:
                         available = 'Unknown'
                         percent = 0
                         
-                        # For unit testing support
-                        from unittest.mock import MagicMock
-                        if isinstance(psutil.disk_usage, MagicMock):
-                            # Use the mock values directly for tests
-                            mock_usage = psutil.disk_usage(mountpoint)
-                            used = f"{mock_usage.used / (1024**3):.1f} GB" if mock_usage.used < 1024**4 else f"{mock_usage.used / (1024**4):.1f} TB"
-                            available = f"{mock_usage.free / (1024**3):.1f} GB" if mock_usage.free < 1024**4 else f"{mock_usage.free / (1024**4):.1f} TB"
-                            percent = mock_usage.percent
-                        elif mountpoint and os.path.ismount(mountpoint):
+                        # Get disk usage if mounted
+                        if mountpoint and os.path.ismount(mountpoint):
                             try:
                                 usage = psutil.disk_usage(mountpoint)
                                 # Convert bytes to human-readable format
                                 used = f"{usage.used / (1024**3):.1f} GB" if usage.used < 1024**4 else f"{usage.used / (1024**4):.1f} TB"
                                 available = f"{usage.free / (1024**3):.1f} GB" if usage.free < 1024**4 else f"{usage.free / (1024**4):.1f} TB"
                                 percent = usage.percent
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                print(f"Error getting disk usage for {mountpoint}: {str(e)}")
                         
-                        # Add drive information
-                        drives.append({
+                        # Get additional properties if available
+                        label = partition.get('label', '')
+                        model = device.get('model', '')
+                        
+                        # Add drive information with additional USB flag
+                        drive_info = {
                             'device': device_path,
                             'mountpoint': mountpoint,
                             'size': size,
                             'used': used,
                             'available': available,
                             'percent': percent,
-                            'fstype': partition.get('fstype', 'Unknown')
-                        })
+                            'fstype': partition.get('fstype', 'Unknown'),
+                            'is_usb': is_usb or device_path in usb_devices,
+                            'label': label if label else f"Drive {partition['name']}",
+                            'model': model
+                        }
+                        
+                        print(f"Adding drive: {drive_info}")
+                        drives.append(drive_info)
+
+        # If no drives were found, try direct USB detection
+        if not drives:
+            print("No drives found through lsblk, trying direct USB detection...")
+            for usb_device in usb_devices:
+                # Get filesystem type
+                try:
+                    blkid_result = subprocess.run(
+                        ['blkid', '-o', 'value', '-s', 'TYPE', usb_device],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    fstype = blkid_result.stdout.strip() or "Unknown"
+                    
+                    # Get filesystem label
+                    label_result = subprocess.run(
+                        ['blkid', '-o', 'value', '-s', 'LABEL', usb_device],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    label = label_result.stdout.strip() or f"USB {os.path.basename(usb_device)}"
+                    
+                    # Get size
+                    size_result = subprocess.run(
+                        ['blockdev', '--getsize64', usb_device],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    size_bytes = int(size_result.stdout.strip() or 0)
+                    size = f"{size_bytes / (1024**3):.1f} GB" if size_bytes < 1024**4 else f"{size_bytes / (1024**4):.1f} TB"
+                    
+                    # Check if mounted
+                    mount_result = subprocess.run(
+                        ['findmnt', '-n', '-o', 'TARGET', '-S', usb_device],
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    mountpoint = mount_result.stdout.strip()
+                    
+                    drive_info = {
+                        'device': usb_device,
+                        'mountpoint': mountpoint,
+                        'size': size,
+                        'used': 'Unknown',
+                        'available': 'Unknown',
+                        'percent': 0,
+                        'fstype': fstype,
+                        'is_usb': True,
+                        'label': label,
+                        'model': 'USB Storage'
+                    }
+                    
+                    # Get usage if mounted
+                    if mountpoint and os.path.ismount(mountpoint):
+                        try:
+                            usage = psutil.disk_usage(mountpoint)
+                            # Convert bytes to human-readable format
+                            drive_info['used'] = f"{usage.used / (1024**3):.1f} GB" if usage.used < 1024**4 else f"{usage.used / (1024**4):.1f} TB"
+                            drive_info['available'] = f"{usage.free / (1024**3):.1f} GB" if usage.free < 1024**4 else f"{usage.free / (1024**4):.1f} TB"
+                            drive_info['percent'] = usage.percent
+                        except Exception as e:
+                            print(f"Error getting disk usage for {mountpoint}: {str(e)}")
+                    
+                    print(f"Adding USB drive: {drive_info}")
+                    drives.append(drive_info)
+                except Exception as e:
+                    print(f"Error processing USB device {usb_device}: {str(e)}")
+    
     except Exception as e:
         print(f"Error getting drive information: {str(e)}")
     
     return drives
+
+
+def get_usb_devices() -> List[str]:
+    """
+    Get a list of USB storage devices.
+    
+    Returns:
+        List[str]: List of USB device paths.
+    """
+    usb_devices = []
+    
+    try:
+        # First method: check /dev/disk/by-path for usb devices
+        if os.path.exists('/dev/disk/by-path'):
+            for path in os.listdir('/dev/disk/by-path'):
+                if 'usb' in path and not path.endswith('-part'):
+                    try:
+                        full_path = os.path.join('/dev/disk/by-path', path)
+                        real_path = os.path.realpath(full_path)
+                        if real_path not in usb_devices:
+                            usb_devices.append(real_path)
+                    except Exception as e:
+                        print(f"Error resolving USB path {path}: {str(e)}")
+        
+        # Second method: use lsblk to find devices with USB transport
+        try:
+            result = subprocess.run(
+                ['lsblk', '-o', 'NAME,TRAN', '-n'],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    parts = line.strip().split()
+                    if len(parts) >= 2 and parts[1] == 'usb':
+                        device = f"/dev/{parts[0]}"
+                        if device not in usb_devices:
+                            usb_devices.append(device)
+        except Exception as e:
+            print(f"Error using lsblk to find USB devices: {str(e)}")
+        
+        # Third method: check dmesg for USB storage devices
+        try:
+            result = subprocess.run(
+                ['dmesg', '|', 'grep', '-i', 'usb', '|', 'grep', '-i', 'storage'],
+                shell=True,
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    match = re.search(r'sd[a-z]', line)
+                    if match:
+                        device = f"/dev/{match.group(0)}"
+                        if device not in usb_devices:
+                            usb_devices.append(device)
+        except Exception as e:
+            print(f"Error using dmesg to find USB devices: {str(e)}")
+    
+    except Exception as e:
+        print(f"Error detecting USB devices: {str(e)}")
+    
+    return usb_devices
 
 
 def get_mount_points() -> List[Dict[str, Any]]:

@@ -187,21 +187,68 @@ class DriveManager {
     let html = '<div class="drives-list">';
     
     if (this.drives.length === 0) {
-      html += '<p>No drives found</p>';
+      html += `
+        <div class="no-drives-message">
+          <i class="fas fa-hdd"></i>
+          <p>No storage drives detected</p>
+          <p class="hint">Connect a USB drive or add a network share to continue</p>
+        </div>
+      `;
     } else {
-      this.drives.forEach(drive => {
-        const sizeGB = (drive.size / (1024 * 1024 * 1024)).toFixed(1);
-        const usedGB = ((drive.size - drive.free) / (1024 * 1024 * 1024)).toFixed(1);
-        const usedPercent = Math.round(((drive.size - drive.free) / drive.size) * 100);
+      // Sort drives - USB drives first, then by size
+      const sortedDrives = [...this.drives].sort((a, b) => {
+        // USB drives first
+        if (a.is_usb && !b.is_usb) return -1;
+        if (!a.is_usb && b.is_usb) return 1;
+        
+        // Then by size (larger first)
+        const sizeA = typeof a.size === 'string' ? parseInt(a.size) : a.size;
+        const sizeB = typeof b.size === 'string' ? parseInt(b.size) : b.size;
+        return sizeB - sizeA;
+      });
+      
+      sortedDrives.forEach(drive => {
+        // Get drive size information
+        let size = drive.size;
+        let used = 'Unknown';
+        let available = 'Unknown';
+        let usedPercent = 0;
+        
+        if (typeof size === 'string') {
+          // Handle size strings like "8G" or "1T"
+          size = size.replace(/([0-9.]+)([GT])B?/, (match, num, unit) => {
+            return parseFloat(num) * (unit === 'T' ? 1024 : 1) + ' GB';
+          });
+        } else {
+          size = 'Unknown';
+        }
+        
+        // If we have usage information
+        if (drive.used && drive.available) {
+          used = drive.used;
+          available = drive.available;
+          usedPercent = drive.percent || 0;
+        }
+        
+        // Create a nicer display name
+        const displayName = drive.label || drive.model || (drive.is_usb ? `USB Drive (${drive.device})` : drive.device);
+        
+        // Add USB icon if it's a USB drive
+        const driveIcon = drive.is_usb ? 
+          '<i class="fas fa-usb device-icon usb-icon"></i>' : 
+          '<i class="fas fa-hdd device-icon"></i>';
         
         html += `
-          <div class="drive-item" data-drive-path="${drive.path}">
+          <div class="drive-item ${drive.is_usb ? 'usb-drive' : ''}" data-device="${drive.device}">
             <div class="drive-info">
-              <div class="drive-name">${drive.label || drive.path}</div>
-              <div class="drive-details">
-                <span class="drive-size">${sizeGB} GB</span>
-                <span class="drive-type">${drive.fs_type || 'Unknown'}</span>
-                <span class="drive-mount">${drive.mountpoint || 'Not mounted'}</span>
+              ${driveIcon}
+              <div class="drive-name-container">
+                <div class="drive-name">${displayName}</div>
+                <div class="drive-details">
+                  <span class="drive-size">${size}</span>
+                  <span class="drive-type">${drive.fstype || 'Unknown'}</span>
+                  <span class="drive-mount">${drive.mountpoint || 'Not mounted'}</span>
+                </div>
               </div>
             </div>
             <div class="drive-usage">
@@ -210,14 +257,16 @@ class DriveManager {
                   <span class="progress-text">${usedPercent}%</span>
                 </div>
               </div>
-              <div class="usage-text">${usedGB} GB / ${sizeGB} GB</div>
+              <div class="usage-text">
+                ${used !== 'Unknown' ? `${used} free of ${size}` : size}
+              </div>
             </div>
             <div class="drive-actions">
               ${drive.mountpoint ? `
-                <button class="btn btn-primary btn-sm select-drive" data-drive-path="${drive.path}">
+                <button class="btn btn-primary btn-sm select-drive" data-device="${drive.device}" data-mountpoint="${drive.mountpoint}">
                   <i class="fas fa-check"></i> Select
                 </button>
-                <button class="btn btn-danger btn-sm unmount-drive" data-drive-path="${drive.path}">
+                <button class="btn btn-danger btn-sm unmount-drive" data-device="${drive.device}" data-mountpoint="${drive.mountpoint}">
                   <i class="fas fa-eject"></i> Unmount
                 </button>
               ` : `
@@ -237,13 +286,14 @@ class DriveManager {
     // Add event listeners
     this.drivesContainer.querySelectorAll('.select-drive').forEach(button => {
       button.addEventListener('click', () => {
-        const drivePath = button.getAttribute('data-drive-path');
-        const drive = this.drives.find(d => d.path === drivePath);
+        const devicePath = button.getAttribute('data-device');
+        const mountpoint = button.getAttribute('data-mountpoint');
+        const drive = this.drives.find(d => d.device === devicePath);
         
-        if (drive && drive.mountpoint) {
+        if (drive && mountpoint) {
           this.dispatchEvent('driveSelected', {
             drive: drive,
-            mountpoint: drive.mountpoint
+            mountpoint: mountpoint
           });
         }
       });
@@ -251,17 +301,61 @@ class DriveManager {
     
     this.drivesContainer.querySelectorAll('.mount-drive').forEach(button => {
       button.addEventListener('click', async () => {
-        const drivePath = button.getAttribute('data-drive-path');
-        // Mount drive implementation would go here
+        const devicePath = button.getAttribute('data-device');
+        const drive = this.drives.find(d => d.device === devicePath);
+        if (!drive) return;
         alert(`Mount functionality will be implemented in a future update`);
       });
     });
     
     this.drivesContainer.querySelectorAll('.unmount-drive').forEach(button => {
       button.addEventListener('click', async () => {
-        const drivePath = button.getAttribute('data-drive-path');
-        // Unmount drive implementation would go here
-        alert(`Unmount functionality will be implemented in a future update`);
+        const devicePath = button.getAttribute('data-device');
+        const mountpoint = button.getAttribute('data-mountpoint');
+        const drive = this.drives.find(d => d.device === devicePath);
+        
+        if (!drive || !mountpoint) return;
+        
+        // Confirm before unmounting
+        if (confirm(`Are you sure you want to unmount ${drive.label || drive.device}?`)) {
+          try {
+            // Call the unmount API
+            const response = await fetch('/api/storage/unmount', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                mountpoint: mountpoint
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+              // Reload drives after successful unmount
+              await this.loadDrives();
+              
+              // Show success message
+              this.dispatchEvent('notification', {
+                type: 'success',
+                message: `Successfully unmounted ${drive.label || drive.device}`
+              });
+            } else {
+              // Show error message
+              this.dispatchEvent('notification', {
+                type: 'error',
+                message: `Failed to unmount: ${result.message || 'Unknown error'}`
+              });
+            }
+          } catch (error) {
+            console.error('Error unmounting drive:', error);
+            this.dispatchEvent('error', {
+              message: 'Failed to unmount drive',
+              error: error
+            });
+          }
+        }
       });
     });
   }
@@ -272,7 +366,13 @@ class DriveManager {
     let html = '<div class="network-shares-list">';
     
     if (this.networkShares.length === 0) {
-      html += '<p>No network shares found</p>';
+      html += `
+        <div class="no-shares-message">
+          <i class="fas fa-network-wired"></i>
+          <p>No network shares configured</p>
+          <p class="hint">Add a network share using the button below</p>
+        </div>
+      `;
     } else {
       this.networkShares.forEach(share => {
         html += `
@@ -346,7 +446,13 @@ class DriveManager {
     let html = '<div class="media-paths">';
     
     if (Object.keys(this.mediaPaths).length === 0) {
-      html += '<p>No media paths configured</p>';
+      html += `
+        <div class="no-paths-message">
+          <i class="fas fa-folder"></i>
+          <p>No media paths configured</p>
+          <p class="hint">Configure your storage first by selecting a drive or adding a network share</p>
+        </div>
+      `;
     } else {
       html += '<ul class="paths-list">';
       
