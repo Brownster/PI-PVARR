@@ -610,7 +610,14 @@ def create_app(test_config=None):
         Returns:
             JSON: System compatibility information.
         """
-        return jsonify(install_wizard.check_system_compatibility())
+        try:
+            app.logger.info("Checking system compatibility")
+            result = install_wizard.check_system_compatibility()
+            app.logger.info(f"System compatibility check completed: {result['status']}")
+            return jsonify(result)
+        except Exception as e:
+            app.logger.error(f"Error in system compatibility check: {str(e)}")
+            return jsonify({"status": "error", "message": str(e)}), 500
     
     @app.route('/api/install/config', methods=['POST'])
     def setup_basic_configuration():
