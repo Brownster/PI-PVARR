@@ -50,4 +50,5 @@ docker-compose.override.yml
 .vscode/
 *.swp
 *.swo
-.DS_Store
+.DS_Store__pycache__/
+.coverage
