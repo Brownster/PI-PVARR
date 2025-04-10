@@ -155,16 +155,33 @@ def check_system_compatibility() -> Dict[str, Any]:
         # Get system information
         _installation_status.update_progress("pre_check", 30)
         sys_info = system_info.get_system_info()
+        _installation_status.add_log(f"Retrieved system info: {sys_info}")
         
         # Memory check (minimum 2GB recommended)
-        memory_gb = sys_info.get("memory", {}).get("total_gb", 0)
+        # Use pre-calculated GB values if available
+        memory_gb = sys_info.get("memory_total_gb", 0)
+        if memory_gb == 0:
+            # Fallback to calculating it
+            memory_total = sys_info.get("memory_total", 0)
+            memory_gb = round(memory_total / (1024.0 ** 3), 1) if memory_total > 0 else 0
+        
         memory_compatible = memory_gb >= 2
+        memory_source = sys_info.get("memory_source", "unknown")
+        _installation_status.add_log(f"Memory: {memory_gb}GB (source: {memory_source})")
         
         _installation_status.update_progress("pre_check", 50)
         
         # Disk space check (minimum 10GB free space recommended)
-        disk_free_gb = sys_info.get("disk", {}).get("free_gb", 0)
+        # Use pre-calculated GB values if available
+        disk_free_gb = sys_info.get("disk_free_gb", 0)
+        if disk_free_gb == 0:
+            # Fallback to calculating it
+            disk_free = sys_info.get("disk_free", 0)
+            disk_free_gb = round(disk_free / (1024.0 ** 3), 1) if disk_free > 0 else 0
+        
         disk_compatible = disk_free_gb >= 10
+        disk_source = sys_info.get("disk_source", "unknown")
+        _installation_status.add_log(f"Disk free space: {disk_free_gb}GB (source: {disk_source})")
         
         _installation_status.update_progress("pre_check", 70)
         
