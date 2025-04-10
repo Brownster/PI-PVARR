@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi-PVARR Installation Wizard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    /* Additional styles for installation wizard */
+    body {
+      background-color: var(--bg-color);
+    }
+    
+    .wizard-container {
+      max-width: 800px;
+      margin: 60px auto;
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .wizard-header {
+      background-color: var(--header-bg);
+      color: var(--header-text);
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .wizard-header h1 {
+      display: flex;
+      align-items: center;
+      font-size: 1.5rem;
+    }
+    
+    .wizard-header h1 i {
+      margin-right: 10px;
+    }
+    
+    .wizard-progress {
+      height: 5px;
+      background-color: var(--border-color);
+      position: relative;
+    }
+    
+    .wizard-progress-fill {
+      height: 100%;
+      background-color: var(--primary-color);
+      width: 0;
+      transition: width 0.3s ease-in-out;
+    }
+    
+    .wizard-step-indicators {
+      display: flex;
+      justify-content: center;
+      margin: 15px 0;
+    }
+    
+    .wizard-step {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background-color: var(--border-color);
+      color: var(--text-color);
+      margin: 0 15px;
+      position: relative;
+      font-size: 0.8rem;
+    }
+    
+    .wizard-step::after {
+      content: attr(data-title);
+      position: absolute;
+      top: 35px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 0.7rem;
+      color: var(--text-light);
+    }
+    
+    .wizard-step.active {
+      background-color: var(--primary-color);
+      color: white;
+    }
+    
+    .wizard-step.completed {
+      background-color: var(--secondary-color);
+      color: white;
+    }
+    
+    .wizard-step-content {
+      padding: 20px;
+      min-height: 300px;
+    }
+    
+    .wizard-buttons {
+      padding: 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    .system-check-results .check-list {
+      list-style: none;
+      margin-top: 15px;
+    }
+    
+    .system-check-results .check-list li {
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    .system-check-results .check-list li.passed {
+      background-color: rgba(46, 204, 113, 0.1);
+    }
+    
+    .system-check-results .check-list li.failed {
+      background-color: rgba(231, 76, 60, 0.1);
+    }
+    
+    .system-check-results .check-icon {
+      margin-right: 10px;
+    }
+    
+    .system-check-results .check-icon i {
+      font-size: 1.2rem;
+    }
+    
+    .system-check-results .check-list li.passed .check-icon i {
+      color: var(--secondary-color);
+    }
+    
+    .system-check-results .check-list li.failed .check-icon i {
+      color: var(--danger-color);
+    }
+    
+    .system-check-results .check-name {
+      font-weight: bold;
+      flex: 1;
+    }
+    
+    .system-check-results .check-status {
+      margin-left: 10px;
+    }
+    
+    .system-check-results .check-message {
+      flex-basis: 100%;
+      margin-top: 5px;
+      margin-left: 30px;
+      color: var(--text-light);
+    }
+    
+    .system-check-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+    }
+    
+    .system-check-loader .spinner {
+      margin-bottom: 15px;
+    }
+    
+    .result-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .result-header i {
+      margin-right: 10px;
+      font-size: 1.5rem;
+    }
+    
+    .result-header h3 {
+      font-size: 1.2rem;
+    }
+    
+    .success i {
+      color: var(--secondary-color);
+    }
+    
+    .error i {
+      color: var(--danger-color);
+    }
+    
+    .incompatible-warning {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: rgba(243, 156, 18, 0.1);
+      border-radius: var(--border-radius);
+      border-left: 3px solid var(--warning-color);
+    }
+    
+    .toggle-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--border-color);
+      transition: .4s;
+      border-radius: 24px;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--card-bg);
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+      background-color: var(--primary-color);
+    }
+    
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
+    }
+    
+    .installation-stage {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .stage-status {
+      margin-right: 15px;
+    }
+    
+    .stage-status i {
+      font-size: 1.2rem;
+    }
+    
+    .installation-stage.completed .stage-status i {
+      color: var(--secondary-color);
+    }
+    
+    .installation-stage.current .stage-status i {
+      color: var(--primary-color);
+    }
+    
+    .installation-stage.pending .stage-status i {
+      color: var(--text-light);
+    }
+    
+    .install-log {
+      max-height: 150px;
+      overflow-y: auto;
+      background-color: #222;
+      color: #eee;
+      font-family: monospace;
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin-top: 15px;
+      white-space: pre-wrap;
+    }
+    
+    .service-url-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 10px;
+      background-color: rgba(52, 152, 219, 0.1);
+      border-radius: var(--border-radius);
+    }
+    
+    .service-icon {
+      margin-right: 15px;
+      color: var(--primary-color);
+      font-size: 1.2rem;
+    }
+    
+    .service-details {
+      flex: 1;
+    }
+    
+    .service-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .service-link {
+      color: var(--primary-color);
+    }
+    
+    .error-container {
+      background-color: rgba(231, 76, 60, 0.1);
+      border-left: 3px solid var(--danger-color);
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: var(--border-radius);
+    }
+    
+    .error-list {
+      list-style: none;
+    }
+    
+    .error-list li {
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+    }
+    
+    .error-list li i {
+      color: var(--danger-color);
+      margin-right: 10px;
+    }
+    
+    input.error {
+      border-color: var(--danger-color);
+    }
+    
+    .share-item {
+      background-color: rgba(52, 152, 219, 0.05);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-bottom: 15px;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+    
+    .remove-share {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    
+    .service-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    
+    .service-group {
+      background-color: rgba(52, 152, 219, 0.05);
+      padding: 15px;
+      border-radius: var(--border-radius);
+    }
+    
+    .service-group h5 {
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+    
+    .service-group ul {
+      list-style: none;
+    }
+    
+    .service-group li {
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+    }
+    
+    .service-group li i {
+      margin-right: 10px;
+    }
+    
+    .service-group li.enabled i {
+      color: var(--secondary-color);
+    }
+    
+    .service-group li.disabled i {
+      color: var(--text-light);
+    }
+    
+    .service-group li.disabled {
+      color: var(--text-light);
+    }
+    
+    .summary-section {
+      margin-bottom: 20px;
+    }
+    
+    .summary-section h4 {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+    }
+    
+    .summary-section h4 i {
+      margin-right: 10px;
+      color: var(--primary-color);
+    }
+    
+    .summary-section ul {
+      list-style: none;
+      margin-left: 20px;
+    }
+    
+    .summary-section li {
+      margin-bottom: 5px;
+    }
+    
+    .summary-subsection {
+      margin-top: 10px;
+      margin-left: 20px;
+    }
+    
+    .summary-subsection h5 {
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+    }
+    
+    /* Notification System */
+    .notification {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 300px;
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+      animation: slideInRight 0.3s ease-out forwards;
+      z-index: 1000;
+    }
+    
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+      }
+      to {
+        transform: translateX(0);
+      }
+    }
+    
+    .notification.success {
+      border-left: 4px solid var(--secondary-color);
+    }
+    
+    .notification.error {
+      border-left: 4px solid var(--danger-color);
+    }
+    
+    .notification.warning {
+      border-left: 4px solid var(--warning-color);
+    }
+    
+    .notification.info {
+      border-left: 4px solid var(--primary-color);
+    }
+    
+    .notification-header {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .notification-header i {
+      margin-right: 10px;
+    }
+    
+    .notification.success .notification-header i {
+      color: var(--secondary-color);
+    }
+    
+    .notification.error .notification-header i {
+      color: var(--danger-color);
+    }
+    
+    .notification.warning .notification-header i {
+      color: var(--warning-color);
+    }
+    
+    .notification.info .notification-header i {
+      color: var(--primary-color);
+    }
+    
+    .notification-header span {
+      flex: 1;
+      font-weight: bold;
+    }
+    
+    .close-notification {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: var(--text-light);
+    }
+    
+    .notification-content {
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wizard-container">
+    <div class="wizard-header">
+      <h1><i class="fas fa-server"></i> Pi-PVARR Installation Wizard</h1>
+      <button id="theme-toggle" class="theme-toggle">
+        <i class="fas fa-moon"></i>
+      </button>
+    </div>
+    
+    <div class="wizard-progress">
+      <div id="wizard-progress-fill" class="wizard-progress-fill"></div>
+    </div>
+    
+    <div class="wizard-step-indicators">
+      <div class="wizard-step active" data-step="system-check" data-title="System Check">1</div>
+      <div class="wizard-step" data-step="basic-config" data-title="Basic Config">2</div>
+      <div class="wizard-step" data-step="network-config" data-title="Network">3</div>
+      <div class="wizard-step" data-step="storage-config" data-title="Storage">4</div>
+      <div class="wizard-step" data-step="service-selection" data-title="Services">5</div>
+      <div class="wizard-step" data-step="install" data-title="Install">6</div>
+    </div>
+    
+    <div class="wizard-step-content">
+      <!-- System Check Step -->
+      <div id="system-check" class="step-content">
+        <h2>System Compatibility Check</h2>
+        <p>Before setting up Pi-PVARR, we need to check if your system meets the requirements.</p>
+        
+        <div id="system-check-loader" class="system-check-loader">
+          <div class="spinner"></div>
+          <p>Checking system compatibility...</p>
+        </div>
+        
+        <div id="system-check-results" class="system-check-results hidden">
+          <!-- Results will be populated here by JavaScript -->
+        </div>
+      </div>
+      
+      <!-- Basic Configuration Step -->
+      <div id="basic-config" class="step-content hidden">
+        <h2>Basic Configuration</h2>
+        <p>Set up basic configuration for your Pi-PVARR installation.</p>
+        
+        <form id="basic-config-form">
+          <div class="form-group">
+            <label for="puid">PUID</label>
+            <input type="number" id="puid" name="puid" value="1000" min="0" max="65535">
+            <small>User ID for Docker containers (typically 1000 for the first user)</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="pgid">PGID</label>
+            <input type="number" id="pgid" name="pgid" value="1000" min="0" max="65535">
+            <small>Group ID for Docker containers (typically 1000 for the first user)</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="timezone">Timezone</label>
+            <select id="timezone" name="timezone">
+              <option value="UTC">UTC</option>
+              <option value="America/New_York">Eastern Time (ET)</option>
+              <option value="America/Chicago">Central Time (CT)</option>
+              <option value="America/Denver">Mountain Time (MT)</option>
+              <option value="America/Los_Angeles">Pacific Time (PT)</option>
+              <option value="Europe/London">London (GMT)</option>
+              <option value="Europe/Berlin">Central European Time (CET)</option>
+              <option value="Asia/Tokyo">Japan (JST)</option>
+              <option value="Australia/Sydney">Sydney (AEST)</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="media_dir">Media Directory</label>
+            <input type="text" id="media_dir" name="media_dir" value="/mnt/media">
+            <small>Directory where media files will be stored</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="downloads_dir">Downloads Directory</label>
+            <input type="text" id="downloads_dir" name="downloads_dir" value="/mnt/downloads">
+            <small>Directory where downloaded files will be stored</small>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Network Configuration Step -->
+      <div id="network-config" class="step-content hidden">
+        <h2>Network Configuration</h2>
+        <p>Configure network settings for your Pi-PVARR installation.</p>
+        
+        <form id="network-config-form">
+          <div class="form-group toggle-container">
+            <label for="vpn-enabled">Enable VPN</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="vpn-enabled" name="vpn-enabled">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          
+          <div id="vpn-details" class="hidden">
+            <div class="form-group">
+              <label for="vpn-provider">VPN Provider</label>
+              <select id="vpn-provider" name="vpn-provider">
+                <option value="nordvpn">NordVPN</option>
+                <option value="expressvpn">ExpressVPN</option>
+                <option value="privatevpn">PrivateVPN</option>
+                <option value="pia">Private Internet Access</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="vpn-username">VPN Username</label>
+              <input type="text" id="vpn-username" name="vpn-username">
+            </div>
+            
+            <div class="form-group">
+              <label for="vpn-password">VPN Password</label>
+              <input type="password" id="vpn-password" name="vpn-password">
+            </div>
+            
+            <div class="form-group">
+              <label for="vpn-region">VPN Region</label>
+              <select id="vpn-region" name="vpn-region">
+                <option value="us">United States</option>
+                <option value="uk">United Kingdom</option>
+                <option value="ca">Canada</option>
+                <option value="nl">Netherlands</option>
+                <option value="de">Germany</option>
+                <option value="fr">France</option>
+                <option value="se">Sweden</option>
+                <option value="ch">Switzerland</option>
+                <option value="au">Australia</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-group toggle-container">
+            <label for="tailscale-enabled">Enable Tailscale</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="tailscale-enabled" name="tailscale-enabled">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          
+          <div id="tailscale-details" class="hidden">
+            <div class="form-group">
+              <label for="tailscale-auth-key">Tailscale Auth Key</label>
+              <input type="text" id="tailscale-auth-key" name="tailscale-auth-key">
+              <small>Optional: Auth key for automatic connection</small>
+            </div>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Storage Configuration Step -->
+      <div id="storage-config" class="step-content hidden">
+        <h2>Storage Configuration</h2>
+        <p>Configure storage settings for your Pi-PVARR installation.</p>
+        
+        <div id="drives-loading" class="system-check-loader">
+          <div class="spinner"></div>
+          <p>Loading storage devices...</p>
+        </div>
+        
+        <div id="drives-container" class="hidden">
+          <form id="storage-config-form">
+            <div class="form-group">
+              <label for="media-directory">Media Directory</label>
+              <input type="text" id="media-directory" name="media-directory" value="/mnt/media">
+            </div>
+            
+            <div class="form-group">
+              <label for="downloads-directory">Downloads Directory</label>
+              <input type="text" id="downloads-directory" name="downloads-directory" value="/mnt/downloads">
+            </div>
+            
+            <div class="form-group">
+              <label for="share-method">File Sharing Method</label>
+              <select id="share-method" name="share-method">
+                <option value="samba">Samba (Windows/macOS/Linux)</option>
+                <option value="nfs">NFS (Linux/macOS)</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            
+            <h3>Shares</h3>
+            <div id="shares-container">
+              <div class="share-item">
+                <div class="form-group">
+                  <label for="share-name-1">Share Name</label>
+                  <input type="text" id="share-name-1" name="share-name-1" value="Media">
+                </div>
+                
+                <div class="form-group">
+                  <label for="share-path-1">Share Path</label>
+                  <input type="text" id="share-path-1" name="share-path-1" value="/mnt/media">
+                </div>
+                
+                <div class="form-group toggle-container">
+                  <label for="share-public-1">Public (No Authentication)</label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="share-public-1" name="share-public-1">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <div class="button-row">
+              <button type="button" class="btn btn-primary" id="btn-add-share">
+                <i class="fas fa-plus"></i> Add Share
+              </button>
+            </div>
+          </form>
+          
+          <h3>Available Drives</h3>
+          <div id="drives-list">
+            <!-- Drive list will be populated here -->
+          </div>
+          
+          <h3>Network Shares</h3>
+          <div id="network-shares-container">
+            <!-- Network shares will be populated here -->
+          </div>
+          
+          <h3>Media Paths</h3>
+          <div id="media-paths-container">
+            <!-- Media paths will be populated here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Service Selection Step -->
+      <div id="service-selection" class="step-content hidden">
+        <h2>Service Selection</h2>
+        <p>Select which services you want to install.</p>
+        
+        <h3>Media Management</h3>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-sonarr" name="service-sonarr" checked>
+          <label for="service-sonarr">Sonarr (TV Shows)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-radarr" name="service-radarr" checked>
+          <label for="service-radarr">Radarr (Movies)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-prowlarr" name="service-prowlarr" checked>
+          <label for="service-prowlarr">Prowlarr (Indexers)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-lidarr" name="service-lidarr">
+          <label for="service-lidarr">Lidarr (Music)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-readarr" name="service-readarr">
+          <label for="service-readarr">Readarr (Books)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-bazarr" name="service-bazarr">
+          <label for="service-bazarr">Bazarr (Subtitles)</label>
+        </div>
+        
+        <h3>Download Clients</h3>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-transmission" name="service-transmission" checked>
+          <label for="service-transmission">Transmission (Torrents)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-qbittorrent" name="service-qbittorrent">
+          <label for="service-qbittorrent">qBittorrent (Torrents)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-nzbget" name="service-nzbget">
+          <label for="service-nzbget">NZBGet (Usenet)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-sabnzbd" name="service-sabnzbd">
+          <label for="service-sabnzbd">SABnzbd (Usenet)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-jdownloader" name="service-jdownloader">
+          <label for="service-jdownloader">JDownloader (Direct Downloads)</label>
+        </div>
+        
+        <h3>Media Servers</h3>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-jellyfin" name="service-jellyfin" checked>
+          <label for="service-jellyfin">Jellyfin (Open Source)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-plex" name="service-plex">
+          <label for="service-plex">Plex Media Server</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-emby" name="service-emby">
+          <label for="service-emby">Emby</label>
+        </div>
+        
+        <h3>Utilities</h3>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-heimdall" name="service-heimdall" checked>
+          <label for="service-heimdall">Heimdall (Dashboard)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-overseerr" name="service-overseerr">
+          <label for="service-overseerr">Overseerr (Request Management)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-tautulli" name="service-tautulli">
+          <label for="service-tautulli">Tautulli (Plex Monitoring)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-portainer" name="service-portainer" checked>
+          <label for="service-portainer">Portainer (Docker Management)</label>
+        </div>
+        
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="service-get-iplayer" name="service-get-iplayer">
+          <label for="service-get-iplayer">Get iPlayer</label>
+        </div>
+      </div>
+      
+      <!-- Installation Summary Step -->
+      <div id="install" class="step-content hidden">
+        <h2>Installation Summary</h2>
+        <p>Review your configuration before starting the installation.</p>
+        
+        <div id="summary-content">
+          <!-- Summary content will be populated here -->
+        </div>
+      </div>
+      
+      <!-- Installation Progress Step -->
+      <div id="install-progress" class="step-content hidden">
+        <h2>Installation Progress</h2>
+        <p>Installing Pi-PVARR with your selected configuration...</p>
+        
+        <div class="resource-metric">
+          <div class="resource-header">
+            <h3>Overall Progress</h3>
+            <span class="resource-value" id="install-percentage">0%</span>
+          </div>
+          <div class="progress-container">
+            <div class="progress-bar" id="install-progress-bar" style="width: 0%;">
+              <span class="progress-text">0%</span>
+            </div>
+          </div>
+        </div>
+        
+        <h3>Current Stage: <span id="install-stage">Preparing...</span></h3>
+        
+        <div class="stage-list">
+          <!-- Installation stages will be populated here -->
+        </div>
+        
+        <h3>Installation Log</h3>
+        <div id="install-log" class="install-log">
+          Installation starting...
+        </div>
+      </div>
+      
+      <!-- Installation Complete Step -->
+      <div id="install-complete" class="step-content hidden">
+        <h2>Installation Complete</h2>
+        <p>Pi-PVARR has been successfully installed and configured!</p>
+        
+        <div class="result-header success">
+          <i class="fas fa-check-circle"></i>
+          <h3>All services are up and running</h3>
+        </div>
+        
+        <h3>Your Services</h3>
+        <div id="service-urls">
+          <!-- Service URLs will be populated here -->
+        </div>
+        
+        <div class="button-row">
+          <a href="/" class="btn btn-primary">
+            <i class="fas fa-home"></i> Go to Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="wizard-buttons">
+      <!-- System Check Step Buttons -->
+      <div id="system-check-buttons">
+        <button id="btn-run-system-check" class="btn btn-primary">
+          <i class="fas fa-sync-alt"></i> Run System Check
+        </button>
+        <button id="btn-system-check-next" class="btn btn-primary" disabled>
+          Next <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+      
+      <!-- Basic Config Step Buttons -->
+      <div id="basic-config-buttons" class="hidden">
+        <button id="btn-basic-config-prev" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Previous
+        </button>
+        <button id="btn-basic-config-next" class="btn btn-primary">
+          Next <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+      
+      <!-- Network Config Step Buttons -->
+      <div id="network-config-buttons" class="hidden">
+        <button id="btn-network-config-prev" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Previous
+        </button>
+        <button id="btn-network-config-next" class="btn btn-primary">
+          Next <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+      
+      <!-- Storage Config Step Buttons -->
+      <div id="storage-config-buttons" class="hidden">
+        <button id="btn-storage-config-prev" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Previous
+        </button>
+        <button id="btn-storage-config-next" class="btn btn-primary">
+          Next <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+      
+      <!-- Service Selection Step Buttons -->
+      <div id="service-selection-buttons" class="hidden">
+        <button id="btn-service-selection-prev" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Previous
+        </button>
+        <button id="btn-service-selection-next" class="btn btn-primary">
+          Next <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+      
+      <!-- Install Step Buttons -->
+      <div id="install-buttons" class="hidden">
+        <button id="btn-install-prev" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Previous
+        </button>
+        <button id="btn-start-install" class="btn btn-success">
+          <i class="fas fa-play"></i> Start Installation
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+  </div>
+
+  <script src="js/api-client.js"></script>
+  <script src="js/wizard.js"></script>
+</body>
+</html>
