@@ -14,6 +14,7 @@ import time
 import logging
 import subprocess
 import platform
+import tempfile
 from typing import Dict, Any, List
 
 from src.core import config, docker_manager, storage_manager, network_manager, service_manager, system_info
@@ -203,7 +204,7 @@ def check_system_compatibility() -> Dict[str, Any]:
         
         # Log results
         _installation_status.add_log(f"System compatibility check completed: {'Compatible' if compatible else 'Not fully compatible'}")
-        for check_type, check_info in compatibility_info["checks"].items():
+        for _, check_info in compatibility_info["checks"].items():
             if "message" in check_info:
                 _installation_status.add_log(check_info["message"])
         
@@ -442,7 +443,7 @@ def setup_storage_configuration(storage_config: Dict[str, Any]) -> Dict[str, Any
                     elif verify_result["status"] == "warning":
                         _installation_status.add_log(f"WARNING: {verify_result.get('message')}")
                 else:
-                    _installation_status.add_log(f"WARNING: Skipping mount point with missing device or path")
+                    _installation_status.add_log("WARNING: Skipping mount point with missing device or path")
             
             # Block installation if critical mounts failed
             if critical_mount_failures:
@@ -1124,7 +1125,7 @@ WantedBy=multi-user.target
                 _installation_status.add_log("WARNING: systemd not detected, mount wait service not installed")
                 
                 # Create a cron job as alternative
-                crontab_cmd = f"@reboot /opt/pi-pvarr/bin/wait-for-mounts.sh >> /var/log/pi-pvarr/mount-check.log 2>&1"
+                crontab_cmd = "@reboot /opt/pi-pvarr/bin/wait-for-mounts.sh >> /var/log/pi-pvarr/mount-check.log 2>&1"
                 try:
                     # Get current crontab
                     process = subprocess.run(["crontab", "-l"], capture_output=True, text=True)

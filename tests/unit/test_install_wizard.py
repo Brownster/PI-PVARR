@@ -274,6 +274,8 @@ class TestInstallWizardFunctions:
 
     @patch('src.core.config.get_config')
     @patch('src.core.config.save_config_wrapper')
+    @patch('src.core.storage_manager.validate_device')
+    @patch('src.core.storage_manager.verify_mount')
     @patch('src.core.storage_manager.mount_drive')
     @patch('src.core.storage_manager.create_media_directories')
     @patch('src.core.storage_manager.add_share')
@@ -282,7 +284,8 @@ class TestInstallWizardFunctions:
     @patch('os.chown')
     def test_setup_storage_configuration(self, mock_chown, mock_makedirs, mock_exists,
                                        mock_add_share, mock_create_media_directories,
-                                       mock_mount_drive, mock_save_config, mock_get_config):
+                                       mock_mount_drive, mock_verify_mount, mock_validate_device,
+                                       mock_save_config, mock_get_config):
         """Test setting up storage configuration."""
         # Setup mocks
         mock_get_config.return_value = {
@@ -290,6 +293,8 @@ class TestInstallWizardFunctions:
             "pgid": 1000,
             "timezone": "UTC"
         }
+        mock_validate_device.return_value = {"status": "success", "message": "Device is valid"}
+        mock_verify_mount.return_value = {"status": "success", "message": "Mount is verified"}
         mock_mount_drive.return_value = {"status": "success"}
         mock_create_media_directories.return_value = {"status": "success"}
         mock_add_share.return_value = {"status": "success"}
@@ -331,7 +336,9 @@ class TestInstallWizardFunctions:
         assert result["status"] == "success"
         
         # Verify that storage manager functions were called
-        mock_mount_drive.assert_called_once_with("/dev/sda1", "/mnt/media", "ext4")
+        mock_mount_drive.assert_called_once_with("/dev/sda1", "/mnt/media", "ext4", None, True)
+        mock_validate_device.assert_called_with("/dev/sda1", "ext4")
+        mock_verify_mount.assert_called_with("/mnt/media", uid=1000, gid=1000)
         mock_create_media_directories.assert_called_once()
         mock_add_share.assert_called_once()
         
