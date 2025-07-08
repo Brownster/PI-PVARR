@@ -967,5 +967,4 @@ def get_installation_status() -> Dict[str, Any]:
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Error getting installation status: {str(e)}"
-        }
+            "message": f"Error getting installation status: {str(e)}"        }

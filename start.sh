@@ -77,5 +77,4 @@ case $choice in
     *)
         echo -e "${RED}Invalid option. Please try again.${NC}"
         exit 1
-        ;;
-esac
+        ;;esac

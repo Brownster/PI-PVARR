@@ -10,5 +10,4 @@ if [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
-# Run the API server
-python -m src.api.server
+# Run the API serverpython -m src.api.server

@@ -224,5 +224,4 @@ groups $USER
 3. Restart Docker:
 
 ```bash
-sudo systemctl restart docker
-```
+sudo systemctl restart docker```

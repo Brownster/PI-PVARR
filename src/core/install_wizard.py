@@ -1366,5 +1366,4 @@ def run_installation(installation_config: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         error_msg = f"Unexpected error during installation: {str(e)}"
         _installation_status.add_error(error_msg)
-        _installation_status.status = "failed"
-        return get_installation_status()
+        _installation_status.status = "failed"        return get_installation_status()

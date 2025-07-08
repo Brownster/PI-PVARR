@@ -196,5 +196,4 @@ def save_services_config(services_config: Dict[str, Any]) -> None:
     
     Args:
         services_config (Dict[str, Any]): The services configuration to save.
-    """
-    save_config_wrapper(services_config, 'services.json')
+    """    save_config_wrapper(services_config, 'services.json')

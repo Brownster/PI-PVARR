@@ -72,5 +72,4 @@ The following fixtures are available for use in tests:
 ## Test Organization
 
 - `tests/unit/`: Contains unit tests that test individual functions and classes
-- `tests/integration/`: Contains integration tests that test how components work together
-- `tests/fixtures/`: Contains shared test fixtures and mock data
+- `tests/integration/`: Contains integration tests that test how components work together- `tests/fixtures/`: Contains shared test fixtures and mock data

@@ -221,5 +221,4 @@ main() {
     log_success "Installation completed"
 }
 
-# Run the main function
-main
+# Run the main functionmain

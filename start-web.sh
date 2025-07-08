@@ -22,5 +22,4 @@ trap "kill $API_PID 2>/dev/null || true" INT TERM EXIT
 echo "Web UI server started at http://localhost:8080"
 echo "Press Ctrl+C to stop the server"
 
-# Keep the script running
-wait $API_PID
+# Keep the script runningwait $API_PID

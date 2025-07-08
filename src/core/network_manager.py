@@ -272,5 +272,4 @@ def get_network_info() -> Dict[str, Any]:
         'vpn': vpn_status.get('vpn', {'connected': False, 'provider': None}),
         'tailscale': tailscale_status.get('tailscale', {'installed': False, 'running': False})
     }
-    
-    return network_info
+        return network_info

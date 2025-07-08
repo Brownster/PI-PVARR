@@ -56,5 +56,4 @@ All contributions should include tests:
 Update documentation when necessary:
 
 - Code comments and docstrings
-- README and other Markdown files
-- User guides and API documentation
+- README and other Markdown files- User guides and API documentation

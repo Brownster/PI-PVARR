@@ -183,5 +183,4 @@ The Settings tab allows you to configure:
 ### Advanced Settings
 
 - Debug mode
-- Hardware acceleration
-- Resource limits
+- Hardware acceleration- Resource limits

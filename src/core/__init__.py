@@ -1,3 +1,2 @@
 """
-Core modules for Pi-PVARR.
-"""
+Core modules for Pi-PVARR."""

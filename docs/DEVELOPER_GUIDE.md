@@ -121,5 +121,4 @@ npm test
 ## Commit Guidelines
 
 - Use clear commit messages
-- Reference issue numbers when relevant
-- Each commit should represent a logical unit of change
+- Reference issue numbers when relevant- Each commit should represent a logical unit of change
