@@ -281,5 +281,4 @@ boot_count=$(cat /var/run/pi-pvarr/boot-count 2>/dev/null || echo 0)
 echo $((boot_count + 1)) > /var/run/pi-pvarr/boot-count
 
 log "Mount check script completed"
-update_status_file "completed" "System startup complete" 100 0
-exit 0
+update_status_file "completed" "System startup complete" 100 0exit 0

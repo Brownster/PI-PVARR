@@ -930,5 +930,4 @@ Planned API enhancements include:
 - Filtering and sorting options
 - WebSocket support for real-time updates
 - Comprehensive error codes
-- API versioning
-- Rate limiting
+- API versioning- Rate limiting

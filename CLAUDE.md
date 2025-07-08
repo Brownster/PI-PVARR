@@ -52,5 +52,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Implement features incrementally
 - Write tests before implementing features
 - Document code and APIs
-- Keep functions small and focused on a single responsibility
-- Follow the DRY principle
+- Keep functions small and focused on a single responsibility- Follow the DRY principle

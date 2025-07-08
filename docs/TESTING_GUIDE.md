@@ -479,5 +479,4 @@ When tests fail:
 5. Fix the issue and verify with a re-run
 
 ## Conclusion
-
 Comprehensive testing is essential for maintaining Pi-PVARR's quality and reliability. By following the testing practices in this guide, we ensure that the application provides a smooth experience for users while maintaining high code quality.

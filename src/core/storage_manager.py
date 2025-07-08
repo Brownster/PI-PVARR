@@ -1068,5 +1068,4 @@ def create_media_directories(base_dir: str, uid: int, gid: int) -> Dict[str, Any
             'message': "Media directories created successfully",
             'details': results
         }
-    except Exception as e:
-        return {'status': 'error', 'message': f"Error creating media directories: {str(e)}"}
+    except Exception as e:        return {'status': 'error', 'message': f"Error creating media directories: {str(e)}"}

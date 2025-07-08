@@ -421,5 +421,4 @@ def get_system_info() -> Dict[str, Any]:
             'disk_free': 10 * 1024 * 1024 * 1024,    # 10GB fallback
             'disk_free_gb': 10.0,
             'docker_installed': False,
-            'error': str(e)
-        }
+            'error': str(e)        }

@@ -1851,5 +1851,4 @@ Run the complete installation process from beginning to end.
 ```
 
 ## Rate Limiting
-
 Currently, there are no rate limits enforced on the API. This may change in future versions.

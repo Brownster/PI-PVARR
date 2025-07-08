@@ -365,5 +365,4 @@ def update_all_containers() -> Dict[str, Any]:
     except Exception as e:
         results['status'] = 'error'
         results['message'] = f"Error updating containers: {str(e)}"
-    
-    return results
+        return results

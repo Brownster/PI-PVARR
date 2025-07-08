@@ -4,7 +4,7 @@ This folder contains task files for managing work on the Pi-PVARR project. Each 
 
 ## Task List
 
-- [ ] **Task 1:** Repository cleanup (`cleanup.md`)
+- [x] **Task 1:** Repository cleanup (`cleanup.md`)
 - [ ] **Task 2:** Environment setup (`environment_setup.md`)
 - [ ] **Task 3:** Docker deployment (`docker_deployment.md`)
 - [ ] **Task 4:** Backend/API improvements (`backend_api.md`)

@@ -618,5 +618,4 @@ Planned enhancements for the Installation Wizard include:
 1. **Resumable Installations**: Resume interrupted installations
 2. **Migration Tools**: Migrate from other media server platforms
 3. **Backup Integration**: Built-in backup configuration
-4. **Advanced Networking**: More network configuration options
-5. **Custom Service Configurations**: More granular service configuration
+4. **Advanced Networking**: More network configuration options5. **Custom Service Configurations**: More granular service configuration

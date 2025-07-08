@@ -734,5 +734,4 @@ Configures Tailscale VPN.
 {
   "status": "success",
   "message": "Tailscale configured and started"
-}
-```
+}```
